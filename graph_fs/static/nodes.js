@@ -63,6 +63,9 @@ function updateColorVariables(theme) {
     }
 }
 
+// tiny logger passthrough so you can see fs_event flow in the UI
+const log = (msg) => { if (window.logEvent) window.logEvent(msg); };
+
 // Rename helper: in-place rename of an open folder when parent directory is unchanged
 function renameOpenFolder(oldPath, newPath) {
     const node = nodesMap.get(oldPath);
@@ -113,6 +116,44 @@ function updateSetRename(setObj, oldId, newId) {
         setObj.delete(oldId);
         setObj.add(newId);
     }
+}
+
+// Smart, minimal mutations for files/folders inside already-open parents
+function addChildIfVisible(parentPath, childPath, childName, type) {
+    if (!openFolders.has(parentPath) || !nodesMap.has(parentPath)) return false;
+    if (nodesMap.has(childPath)) return false; // already present
+    const parentNode = nodesMap.get(parentPath);
+    const childNode = new Node(childName, childPath, type, [], false, parentNode.depth + 1);
+    childNode.parentId = parentNode.id;
+
+    nodesMap.set(childNode.id, childNode);
+    nodesData.push(childNode);
+    parentNode.children = parentNode.children || [];
+    parentNode.children.push(childNode);
+    linksData.push({ source: parentNode, target: childNode });
+    updateGraph();
+    return true;
+}
+
+function removePathIfPresent(absPath) {
+    const node = nodesMap.get(absPath);
+    if (!node) return false;
+    removeNodeAndDescendants(node);
+    updateGraph();
+    return true;
+}
+
+function renameFileInPlace(oldPath, newPath) {
+    const node = nodesMap.get(oldPath);
+    if (!node || node.type !== 'file') return false;
+    nodesMap.delete(oldPath);
+    updateSetRename(selectedFiles, oldPath, newPath);
+    node.id = newPath;
+    node.fullPath = newPath;
+    node.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || node.nodeName;
+    nodesMap.set(node.id, node);
+    updateGraph();
+    return true;
 }
 
 // -------------------- init --------------------
@@ -408,8 +449,13 @@ function getDescendants(node) {
 // Real-time FS events:
 // - Folder deleted while open -> remove immediately + refresh parent
 // - Folder renamed in same parent -> rename in place (preserve open state/children)
-// - File created/modified/deleted -> refresh open parent(s)
+// - File created/modified/deleted -> incremental updates for open parents
 function handleFsEvent(evt) {
+    // Debug surface so you can see them arrive
+    log(`fs_event: ${JSON.stringify({
+        event: evt?.event, path: evt?.path, dest: evt?.dest_path, is_dir: !!evt?.is_dir
+    })}`);
+
     const kind = evt?.event;
     const path = evt?.path;
     const dest = evt?.dest_path;
@@ -422,12 +468,21 @@ function handleFsEvent(evt) {
 
     if (!path && !dest) return;
 
-    // Folder deleted while open: remove immediately, refresh parent
-    if (kind === 'deleted' && isDir && path && nodesMap.has(path)) {
-        const node = nodesMap.get(path);
-        removeNodeAndDescendants(node);
-        updateGraph();
-        refreshIfOpen(parentDir(path));
+    // CREATED: add immediately if parent is open
+    if (kind === 'created' && path) {
+        const parent = parentDir(path);
+        const name = path.split(/[/\\]/).filter(Boolean).pop();
+        const type = isDir ? 'folder' : 'file';
+        if (addChildIfVisible(parent, path, name, type)) return;
+        if (openFolders.has(parent)) socketManager.listDir(parent, excludes);
+        return;
+    }
+
+    // DELETED: remove immediately if present
+    if (kind === 'deleted' && path) {
+        if (removePathIfPresent(path)) return;
+        const parent = parentDir(path);
+        if (openFolders.has(parent)) socketManager.listDir(parent, excludes);
         return;
     }
 
@@ -462,7 +517,32 @@ function handleFsEvent(evt) {
         }
     }
 
-    // Files created/modified/deleted or other cases → refresh affected parents
+    // FILE rename/move handling (same/different parent)
+    if (kind === 'moved' && !isDir && path && dest) {
+        const oldParent = parentDir(path);
+        const newParent = parentDir(dest);
+        if (oldParent === newParent) {
+            if (renameFileInPlace(path, dest)) {
+                refreshIfOpen(oldParent); // reconcile sort order if needed
+                return;
+            }
+            refreshIfOpen(oldParent);
+            return;
+        } else {
+            // Parent changed
+            removePathIfPresent(path); // remove from old parent if we had it
+            const name = dest.split(/[/\\]/).filter(Boolean).pop();
+            addChildIfVisible(newParent, dest, name, 'file'); // add if the new parent is visible
+            refreshIfOpen(oldParent);
+            refreshIfOpen(newParent);
+            return;
+        }
+    }
+
+    // Ignore directory "modified" noise (created files already handled above).
+    if (kind === 'modified' && isDir) return;
+
+    // Other cases → refresh affected parents
     refreshIfOpen(parentDir(path));
     refreshIfOpen(parentDir(dest));
 }
