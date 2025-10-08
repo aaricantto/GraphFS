@@ -1,0 +1,165 @@
+/* Global reset */
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background-color: var(--white-bg-1);
+  color: var(--white-text-1);
+  /* Layout: header auto height, main fills the rest */
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+/* Header styling (improved from current) */
+header {
+  padding: 12px;
+  background-color: var(--white-bg-2);
+  border-bottom: 2px solid var(--border-light);
+  box-shadow: 0 2px 4px var(--shadow);
+  display: flex;
+  flex-direction: column;  /* ← THIS IS IN THE CSS */
+  gap: 8px;
+  position: sticky; /* keep header visible; also prevents overlap */
+  top: 0;
+  z-index: 10;
+}
+
+.header-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap; /* prevent horizontal overflow on narrow screens */
+}
+
+input[type="text"] {
+  flex: 1;
+  padding: 10px;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background-color: var(--white-bg-2);
+  color: var(--white-text-1);
+}
+
+button {
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  outline: none;
+  color: var(--white-text-1);
+  background-color: var(--button-bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  box-shadow: 0 2px 4px var(--shadow);
+  transition: box-shadow 0.1s ease, transform 0.1s ease;
+}
+
+button:active {
+  box-shadow: 0 1px 2px var(--shadow);
+  transform: translateY(2px);
+}
+
+#root-status {
+  font-family: monospace;
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+.hint {
+  opacity: 0.75;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+/* Main layout */
+main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  /* let the body grid control height */
+  min-height: 0; /* critical: allow children to shrink and scroll */
+  gap: 0;
+}
+
+/* Graph pane (matches old app feel) */
+#graph-pane {
+  position: relative;
+  min-height: 0;    /* so #graph fits without forcing overflow */
+  overflow: hidden; /* svg is absolute; hide stray edges */
+  border-right: 2px solid var(--border-light);
+  background-color: var(--white-bg-2);
+}
+
+#graph {
+  position: absolute;
+  inset: 0;
+  background-color: var(--white-bg-2);
+}
+
+/* Events panel */
+#events-pane {
+  overflow: auto;
+  min-height: 0; /* ensure this column can scroll within the grid */
+  padding: 12px;
+  background-color: var(--white-bg-2);
+  border-left: 2px solid var(--border-light);
+}
+
+#events-pane h3 {
+  margin: 8px 0 12px;
+  font-size: 1.1rem;
+  color: var(--white-text-1);
+}
+
+#events {
+  white-space: pre-wrap;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--white-text-1);
+}
+
+/* Lasso (matching old app exactly) */
+.lasso {
+  fill: rgba(0, 0, 255, 0.1);
+  stroke: blue;
+  stroke-width: 1px;
+}
+
+/* Dark theme */
+[data-theme="dark"] body {
+  background-color: var(--dark-bg-1);
+  color: var(--dark-text-1);
+}
+
+[data-theme="dark"] header,
+[data-theme="dark"] #graph-pane,
+[data-theme="dark"] #events-pane {
+  background-color: var(--dark-bg-2);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] #graph {
+  background-color: var(--dark-bg-2);
+}
+
+[data-theme="dark"] input[type="text"] {
+  background-color: var(--dark-bg-2);
+  color: var(--dark-text-1);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] button {
+  background-color: var(--button-bg-dark);
+  color: var(--dark-text-1);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] #events {
+  color: var(--dark-text-1);
+}

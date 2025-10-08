@@ -1,0 +1,32 @@
+/* Base (light) theme tokens */
+:root {
+  /* Light Theme Colors */
+  --white-bg-1: #f4f4f4;
+  --white-bg-2: #ffffff;
+  --white-text-1: #333333;
+  --border-light: #ccc;
+  --button-bg-light: #ffffff;
+  --shadow: rgba(0, 0, 0, 0.3);
+
+  /* Dark theme tokens */
+  --dark-bg-1: #333333;
+  --dark-bg-2: #1a1a1a;
+  --dark-text-1: #f4f4f4;
+  --border-dark: #444444;
+  --button-bg-dark: #333333;
+  
+  /* Graph colors (matching old app exactly) */
+  --folder-color: #ffca28;
+  --folder-open-color: #ffa000;
+  --file-color: #ff0000;
+  --file-selected-color: #32CD32;
+  --link-color: #999999;
+  --node-stroke-light: #ffffff;
+  --node-stroke-dark: #1a1a1a;
+  --selected-stroke-light: #000000;
+  --selected-stroke-dark: #ffffff;
+}
+
+[data-theme="dark"] {
+  --shadow: rgba(80, 80, 80, 0.3);
+}
