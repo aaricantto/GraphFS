@@ -12,8 +12,7 @@ class Node {
         this.isOpen = isOpen;
         this.depth = depth;
         this.selected = false;
-        // optional parent pointer (helps future scalability; not required elsewhere)
-        this.parentId = null;
+        this.parentId = null; // optional pointer
     }
 }
 
@@ -63,8 +62,21 @@ function updateColorVariables(theme) {
     }
 }
 
-// tiny logger passthrough so you can see fs_event flow in the UI
+// tiny logger passthrough so you can see flow in the UI
 const log = (msg) => { if (window.logEvent) window.logEvent(msg); };
+
+// -------------------- expose watch controls to the UI --------------------
+window.enableWatch = (path) => {
+    const p = path || currentRoot;
+    if (!p) return;
+    log(`[ui] watch_enable → ${p}`);
+    socketManager?.watchEnable(p, true);
+};
+window.disableWatch = (pathOrNull) => {
+    const p = pathOrNull ?? null;
+    log(`[ui] watch_disable → ${p ?? '(all for this session)'}`);
+    socketManager?.watchDisable(p);
+};
 
 // Rename helper: in-place rename of an open folder when parent directory is unchanged
 function renameOpenFolder(oldPath, newPath) {
@@ -100,7 +112,6 @@ function renameOpenFolder(oldPath, newPath) {
 
         if (n === node) {
             n.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || n.nodeName;
-            // parentId unchanged for same-parent rename
         } else if (n.parentId) {
             n.parentId = rebase(n.parentId);
         }
@@ -132,6 +143,7 @@ function addChildIfVisible(parentPath, childPath, childName, type) {
     parentNode.children.push(childNode);
     linksData.push({ source: parentNode, target: childNode });
     updateGraph();
+    log(`[ui.apply] add → parent=${parentPath} child=${childPath}`);
     return true;
 }
 
@@ -140,6 +152,7 @@ function removePathIfPresent(absPath) {
     if (!node) return false;
     removeNodeAndDescendants(node);
     updateGraph();
+    log(`[ui.apply] remove → ${absPath}`);
     return true;
 }
 
@@ -153,6 +166,7 @@ function renameFileInPlace(oldPath, newPath) {
     node.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || node.nodeName;
     nodesMap.set(node.id, node);
     updateGraph();
+    log(`[ui.apply] rename(file) → ${oldPath} → ${newPath}`);
     return true;
 }
 
@@ -183,19 +197,28 @@ function setupSocketHandlers() {
     };
 
     socketManager.onRootSet = (data) => {
+        log(`[srv] root_set ← ${data.root}`);
         handleRootSet(data.root);
         if (window.onRootSet) window.onRootSet(data.root);
     };
 
     socketManager.onListing = (data) => {
+        log(`[srv] listing ← ${data.path} (${data.children?.length ?? 0} children)`);
         handleListing(data.path, data.children);
     };
 
+    socketManager.onWatchAck = (d) => {
+        log(`[srv] watch_ack ← enabled=${!!d.enabled} path=${d.path || '(session all)'}`);
+    };
+
     socketManager.onFsEvent = (evt) => {
+        // High-signal line you’ll see in DevTools immediately
+        log(`[fs_event#${evt.seq ?? '?'}][${evt.watch_path ?? '??'}] ${evt.event} ${evt.path}${evt.dest_path ? (' → ' + evt.dest_path) : ''} (dir=${!!evt.is_dir})`);
         handleFsEvent(evt);
     };
 
     socketManager.onError = (data) => {
+        log(`[srv] ERROR ← ${data?.message || 'unknown'}`);
         alert('Server error: ' + (data?.message || 'unknown'));
     };
 }
@@ -446,16 +469,8 @@ function getDescendants(node) {
     return descendants;
 }
 
-// Real-time FS events:
-// - Folder deleted while open -> remove immediately + refresh parent
-// - Folder renamed in same parent -> rename in place (preserve open state/children)
-// - File created/modified/deleted -> incremental updates for open parents
+// ----- handleFsEvent: log + surgical mutations (created/deleted/moved) -----
 function handleFsEvent(evt) {
-    // Debug surface so you can see them arrive
-    log(`fs_event: ${JSON.stringify({
-        event: evt?.event, path: evt?.path, dest: evt?.dest_path, is_dir: !!evt?.is_dir
-    })}`);
-
     const kind = evt?.event;
     const path = evt?.path;
     const dest = evt?.dest_path;
@@ -463,12 +478,14 @@ function handleFsEvent(evt) {
 
     const refreshIfOpen = (p) => {
         if (!p) return;
-        if (openFolders.has(p)) socketManager.listDir(p, excludes);
+        if (openFolders.has(p)) {
+            log(`[ui.apply] refresh(list_dir) → ${p}`);
+            socketManager.listDir(p, excludes);
+        }
     };
 
     if (!path && !dest) return;
 
-    // CREATED: add immediately if parent is open
     if (kind === 'created' && path) {
         const parent = parentDir(path);
         const name = path.split(/[/\\]/).filter(Boolean).pop();
@@ -478,7 +495,6 @@ function handleFsEvent(evt) {
         return;
     }
 
-    // DELETED: remove immediately if present
     if (kind === 'deleted' && path) {
         if (removePathIfPresent(path)) return;
         const parent = parentDir(path);
@@ -486,30 +502,27 @@ function handleFsEvent(evt) {
         return;
     }
 
-    // Folder rename/move
     if (kind === 'moved' && isDir && path && dest) {
         const oldParent = parentDir(path);
         const newParent = parentDir(dest);
-
         if (oldParent === newParent) {
-            // in-place rename
             if (nodesMap.has(path)) {
                 const renamed = renameOpenFolder(path, dest);
                 if (renamed) {
                     updateGraph();
+                    log(`[ui.apply] rename(folder) → ${path} → ${dest}`);
                     refreshIfOpen(oldParent);
                     return;
                 }
             }
-            // if not visible, just refresh the parent if open
             refreshIfOpen(oldParent);
             return;
         } else {
-            // moved across parents
             if (nodesMap.has(path)) {
                 const node = nodesMap.get(path);
                 removeNodeAndDescendants(node);
                 updateGraph();
+                log(`[ui.apply] move(folder) drop old subtree → ${path}`);
             }
             refreshIfOpen(oldParent);
             refreshIfOpen(newParent);
@@ -517,32 +530,27 @@ function handleFsEvent(evt) {
         }
     }
 
-    // FILE rename/move handling (same/different parent)
     if (kind === 'moved' && !isDir && path && dest) {
         const oldParent = parentDir(path);
         const newParent = parentDir(dest);
         if (oldParent === newParent) {
             if (renameFileInPlace(path, dest)) {
-                refreshIfOpen(oldParent); // reconcile sort order if needed
+                refreshIfOpen(oldParent); // to reconcile sorted order
                 return;
             }
             refreshIfOpen(oldParent);
             return;
         } else {
-            // Parent changed
-            removePathIfPresent(path); // remove from old parent if we had it
+            removePathIfPresent(path);
             const name = dest.split(/[/\\]/).filter(Boolean).pop();
-            addChildIfVisible(newParent, dest, name, 'file'); // add if the new parent is visible
+            addChildIfVisible(newParent, dest, name, 'file');
             refreshIfOpen(oldParent);
             refreshIfOpen(newParent);
             return;
         }
     }
 
-    // Ignore directory "modified" noise (created files already handled above).
-    if (kind === 'modified' && isDir) return;
-
-    // Other cases → refresh affected parents
+    if (kind === 'modified' && isDir) return; // ignore noisy folder touches
     refreshIfOpen(parentDir(path));
     refreshIfOpen(parentDir(dest));
 }
