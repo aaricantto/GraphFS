@@ -22,7 +22,6 @@ class _Handler(FileSystemEventHandler):
         })
 
     def on_modified(self, event):
-        # Many editors fire frequent file writes; we still forward — client can choose what to refresh.
         self.cb({
             "event": "modified",
             "path": event.src_path,
@@ -38,11 +37,6 @@ class _Handler(FileSystemEventHandler):
         })
 
 class WatchManager:
-    """
-    Manages a single watchdog observer bound to a 'root' path.
-    Emits normalized events via provided callback.
-    """
-
     def __init__(self):
         self.observer = None
         self.root = None

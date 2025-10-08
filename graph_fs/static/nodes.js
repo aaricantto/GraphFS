@@ -63,6 +63,58 @@ function updateColorVariables(theme) {
     }
 }
 
+// Rename helper: in-place rename of an open folder when parent directory is unchanged
+function renameOpenFolder(oldPath, newPath) {
+    const node = nodesMap.get(oldPath);
+    if (!node) return false;
+
+    // Snapshot subtree (node + all descendants)
+    const stack = [node];
+    const affected = [];
+    while (stack.length) {
+        const cur = stack.pop();
+        affected.push(cur);
+        if (cur.children && cur.children.length) stack.push(...cur.children);
+    }
+
+    const rebase = (oldId) =>
+        oldId.startsWith(oldPath) ? (newPath + oldId.slice(oldPath.length)) : oldId;
+
+    affected.forEach(n => {
+        const oldId = n.id;
+
+        // Maintain sets
+        if (n.type === 'folder' && n.isOpen) {
+            openFolders.delete(oldId);
+            openFolders.add(rebase(oldId));
+        }
+        updateSetRename(selectedFiles, oldId, rebase(oldId));
+
+        // Re-key in nodesMap
+        nodesMap.delete(oldId);
+        n.id = rebase(oldId);
+        n.fullPath = n.id;
+
+        if (n === node) {
+            n.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || n.nodeName;
+            // parentId unchanged for same-parent rename
+        } else if (n.parentId) {
+            n.parentId = rebase(n.parentId);
+        }
+
+        nodesMap.set(n.id, n);
+    });
+
+    return true;
+}
+
+function updateSetRename(setObj, oldId, newId) {
+    if (setObj.has(oldId)) {
+        setObj.delete(oldId);
+        setObj.add(newId);
+    }
+}
+
 // -------------------- init --------------------
 
 function initializeGraph() {
@@ -313,14 +365,23 @@ function handleListing(dirPath, children) {
     });
 }
 
+// Improved: also detach from parent.children and only remove folders from openFolders
 function removeNodeAndDescendants(node) {
+    // Detach from parent.children to avoid stale pointers
+    if (node.parentId && nodesMap.has(node.parentId)) {
+        const parent = nodesMap.get(node.parentId);
+        parent.children = (parent.children || []).filter(ch => ch.id !== node.id);
+    }
+
     const descendants = getDescendants(node);
     descendants.push(node.id);
 
     descendants.forEach(id => {
+        const n = nodesMap.get(id);
+        if (!n) return;
         nodesMap.delete(id);
         selectedFiles.delete(id);
-        openFolders.delete(id);
+        if (n.type === 'folder') openFolders.delete(id);
     });
 
     nodesData = nodesData.filter(n => !descendants.includes(n.id));
@@ -344,23 +405,66 @@ function getDescendants(node) {
     return descendants;
 }
 
+// Real-time FS events:
+// - Folder deleted while open -> remove immediately + refresh parent
+// - Folder renamed in same parent -> rename in place (preserve open state/children)
+// - File created/modified/deleted -> refresh open parent(s)
 function handleFsEvent(evt) {
-    // Determine which parent folders need refresh
-    const pathsToRefresh = new Set();
+    const kind = evt?.event;
+    const path = evt?.path;
+    const dest = evt?.dest_path;
+    const isDir = !!evt?.is_dir;
 
-    if (evt.path) {
-        const parentPath = parentDir(evt.path);
-        if (openFolders.has(parentPath)) pathsToRefresh.add(parentPath);
-    }
-    if (evt.dest_path) {
-        const parentPath = parentDir(evt.dest_path);
-        if (openFolders.has(parentPath)) pathsToRefresh.add(parentPath);
+    const refreshIfOpen = (p) => {
+        if (!p) return;
+        if (openFolders.has(p)) socketManager.listDir(p, excludes);
+    };
+
+    if (!path && !dest) return;
+
+    // Folder deleted while open: remove immediately, refresh parent
+    if (kind === 'deleted' && isDir && path && nodesMap.has(path)) {
+        const node = nodesMap.get(path);
+        removeNodeAndDescendants(node);
+        updateGraph();
+        refreshIfOpen(parentDir(path));
+        return;
     }
 
-    // Refresh affected folders (guards in handleListing will drop stale)
-    pathsToRefresh.forEach(path => {
-        socketManager.listDir(path, excludes);
-    });
+    // Folder rename/move
+    if (kind === 'moved' && isDir && path && dest) {
+        const oldParent = parentDir(path);
+        const newParent = parentDir(dest);
+
+        if (oldParent === newParent) {
+            // in-place rename
+            if (nodesMap.has(path)) {
+                const renamed = renameOpenFolder(path, dest);
+                if (renamed) {
+                    updateGraph();
+                    refreshIfOpen(oldParent);
+                    return;
+                }
+            }
+            // if not visible, just refresh the parent if open
+            refreshIfOpen(oldParent);
+            return;
+        } else {
+            // moved across parents
+            if (nodesMap.has(path)) {
+                const node = nodesMap.get(path);
+                removeNodeAndDescendants(node);
+                updateGraph();
+            }
+            refreshIfOpen(oldParent);
+            refreshIfOpen(newParent);
+            return;
+        }
+    }
+
+    // Files created/modified/deleted or other cases → refresh affected parents
+    refreshIfOpen(parentDir(path));
+    refreshIfOpen(parentDir(dest));
 }
 
 function parentDir(path) {

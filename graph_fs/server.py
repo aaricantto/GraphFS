@@ -52,5 +52,17 @@ def on_list_dir(data):
 def _on_fs_event(evt):
     socketio.emit("fs_event", evt)
 
+
 def start_watcher_on_startup():
-    pass
+    """
+    Back-compat no-op. If you want to auto-start the watcher with a root,
+    set GRAPHFS_ROOT in the environment.
+    """
+    root = os.environ.get("GRAPHFS_ROOT")
+    if not root:
+        return
+    try:
+        fs.set_root(root)
+        watcher.start(fs.root, _on_fs_event)
+    except Exception as e:
+        app.logger.warning(f"Failed to start watcher on startup: {e}")
