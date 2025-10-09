@@ -69,7 +69,7 @@ Perfect for developers working with AI code assistants who need to quickly gathe
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/aaricantto/GraphFS.git
    cd graphfs
    ```
 
