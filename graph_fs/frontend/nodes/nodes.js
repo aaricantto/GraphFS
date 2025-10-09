@@ -1,6 +1,6 @@
 // nodes.js - Multi-root forest with proper app state integration
 import { GraphRenderer } from './graph-renderer.js';
-import { SocketManager } from './../socket-manager.js';
+import { SocketManager } from '../main/socket-manager.js';
 
 class Node {
     constructor(nodeName, fullPath, type, children = [], isOpen = false, depth = 0, isRoot = false) {

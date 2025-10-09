@@ -1,5 +1,19 @@
-/* graph_fs/frontend/index.css */
-/* Single entry that cascades your existing styles */
-@import url("/styles/variables.css");
-@import url("/styles/styles.css");
-/* keep this for future per-page tweaks if needed */
+/* graph_fs/frontend/index.css
+   ----------------------------------------------------------------------
+   ROLE
+   Single CSS entry the app loads. Preserves behavior while moving to a
+   componentized cascade.
+
+   ORDER
+   1) Foundation (tokens + theme + layout)
+   2) Feature bundles (sidebar/header/node) via their own indexes
+   ---------------------------------------------------------------------- */
+
+@import url("./main/styles/index.css");            /* Foundation */
+
+/* Feature shells (sidebar first for first paint of nav) */
+@import url("./main/sidebar/styles/index.css");
+@import url("./main/header/styles/index.css");
+@import url("./node/styles/index.css");
+
+/* Keep this file for future per-page overrides if needed. */

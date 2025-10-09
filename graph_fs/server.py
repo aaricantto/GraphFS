@@ -66,8 +66,7 @@ def _touch_for_root(abs_path: str):
 # -----------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return send_from_directory(FRONTEND_DIR, "templates/index.html")
-
+    return send_from_directory(FRONTEND_DIR, "main/templates/index.html")
 @app.route("/health")
 def health():
     roots = fs.list_roots()

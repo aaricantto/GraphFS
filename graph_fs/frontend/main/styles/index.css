@@ -1,0 +1,7 @@
+/* graph_fs/frontend/main/styles/index.css
+   Foundation bundle. Import order matters: tokens → theme → layout.
+*/
+
+@import url("./tokens.css");   /* semantic tokens + graph tokens */
+@import url("./theme.css");    /* light/dark overrides for tokens */
+@import url("./layout.css");   /* page grid, header, sidebar, graph host */

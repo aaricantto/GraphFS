@@ -1,0 +1,30 @@
+/* theme.css — light/dark overrides for semantic tokens.
+   Default (root) values are light; dark overrides live under [data-theme="dark"].
+*/
+
+/* Light theme (implicit via :root values in tokens.css) */
+
+[data-theme="dark"] {
+  /* Surfaces & text */
+  --bg-0: #333333;
+  --bg-1: #1a1a1a;
+  --bg-2: #262626;
+  --ink-1: #f4f4f4;
+  --ink-2: #c7c7c7;
+
+  /* Borders, buttons, shadows */
+  --border-1: #444444;
+  --button-bg: #333333;
+  --shadow-1: rgba(80, 80, 80, 0.30);
+
+  /* Graph strokes that flip in dark mode */
+  --graph-node-stroke: #1a1a1a;
+  --graph-selected-stroke: #ffffff;
+
+  /* Minor icon visibility if needed */
+  --icon-minor-filter: invert(1) brightness(1.05);
+}
+
+/* Optional: tweak accent warmth per theme if desired
+[data-theme="dark"] { --accent: #ff8c00; }
+*/
