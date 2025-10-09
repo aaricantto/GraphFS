@@ -4,9 +4,10 @@ import logging
 from flask import Flask, send_from_directory, jsonify, request
 from flask_socketio import SocketIO, emit
 
-from .fs_model import MultiFSModel  # <-- CHANGED: use multi-root model
+from .fs_model import MultiFSModel
 from .watch_registry import WatchRegistry
 from .logging_utils import get_logger, block
+from .appdata import AppState
 
 # -----------------------------------------------------------------------------
 # App + Socket.IO setup
@@ -29,8 +30,9 @@ log = get_logger("graphfs.server")
 # -----------------------------------------------------------------------------
 # State
 # -----------------------------------------------------------------------------
-fs = MultiFSModel()  # <-- CHANGED: multi-root filesystem model
+fs = MultiFSModel()
 registry = WatchRegistry()
+app_state = AppState()  # repo-local ./appdata by default
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -47,6 +49,18 @@ def _dbg(title: str, **fields):
 def _err(title: str, **fields):
     log.error("\n" + block(title, **fields))
 
+def _abs(p: str) -> str:
+    return os.path.abspath(os.path.expanduser(os.path.expandvars(p or "")))
+
+def _touch_for_root(abs_path: str):
+    abs_path = _abs(abs_path)
+    # Touch owning root (or itself if exact)
+    for r in list(fs.roots.keys()):
+        rr = r.rstrip(os.sep)
+        if abs_path == rr or abs_path.startswith(rr + os.sep):
+            app_state.touch_root(rr)
+            return
+
 # -----------------------------------------------------------------------------
 # HTTP routes
 # -----------------------------------------------------------------------------
@@ -57,7 +71,7 @@ def index():
 @app.route("/health")
 def health():
     roots = fs.list_roots()
-    data = {"ok": True, "roots": roots}
+    data = {"ok": True, "roots": roots, "app_state": app_state.snapshot()}
     _dbg("HTTP /health", roots=str(roots))
     return jsonify(data)
 
@@ -67,8 +81,12 @@ def health():
 @socketio.on("connect")
 def on_connect():
     roots = fs.list_roots()
-    _ok("SOCKET CONNECTED", sid=_sid(), roots=str(roots))
-    emit("server_info", {"message": "connected", "roots": roots})
+    _ok("SOCKET CONNECTED", sid=_sid(), roots=str(roots), appdata_dir=app_state.dir)
+    emit("server_info", {
+        "message": "connected",
+        "roots": roots,
+        "state": app_state.snapshot()
+    })
 
 @socketio.on("disconnect")
 def on_disconnect():
@@ -78,46 +96,48 @@ def on_disconnect():
     except Exception:
         log.exception("disconnect cleanup failed", extra={"sid": _sid()})
 
-@socketio.on("add_root")  # <-- NEW: add a root
+# ---- ROOT MANAGEMENT ---------------------------------------------------------
+@socketio.on("add_root")
 def on_add_root(data):
-    path = (data or {}).get("path", "").strip()
+    path = _abs((data or {}).get("path", ""))
     excludes = (data or {}).get("excludes", [])
     _ok("ADD ROOT RECEIVED", sid=_sid(), path=path, excludes=",".join(excludes or []))
     try:
         abs_root = fs.add_root(path)
+        # persist state
+        app_state.record_root_add(abs_root, os.path.basename(abs_root))
         emit("root_added", {"root": abs_root, "name": os.path.basename(abs_root)})
         _dbg("ROOT ADDED EMITTED", sid=_sid(), root=abs_root)
 
-        # AUTO-ENABLE WATCH ON NEW ROOT
+        # Auto-enable watch for convenience
         registry.enable(_sid(), abs_root, _on_fs_event, recursive=True)
         _ok("WATCH AUTO-ENABLED ON ROOT", sid=_sid(), path=abs_root)
 
         children = fs.list_dir(abs_root, excludes=excludes)
         emit("listing", {"path": abs_root, "children": children})
+        emit("app_state", app_state.snapshot())  # push updated state
         _ok("LISTING EMITTED (NEW ROOT)", sid=_sid(), path=abs_root, count=len(children))
     except Exception as e:
         log.exception("add_root failed", extra={"sid": _sid(), "path": path})
         emit("error", {"message": str(e)})
 
-@socketio.on("remove_root")  # <-- NEW: remove a root
+@socketio.on("remove_root")
 def on_remove_root(data):
-    path = (data or {}).get("path", "").strip()
+    path = _abs((data or {}).get("path", ""))
     _ok("REMOVE ROOT RECEIVED", sid=_sid(), path=path)
     try:
-        abs_path = os.path.abspath(path)
-        fs.remove_root(abs_path)
-        
-        # Disable watch for this root
-        registry.disable(_sid(), abs_path)
-        
-        emit("root_removed", {"root": abs_path})
-        _ok("ROOT REMOVED", sid=_sid(), path=abs_path)
+        fs.remove_root(path)
+        registry.disable(_sid(), path)
+        app_state.record_root_remove(path)
+        emit("root_removed", {"root": path})
+        emit("app_state", app_state.snapshot())
+        _ok("ROOT REMOVED", sid=_sid(), path=path)
     except Exception as e:
         log.exception("remove_root failed", extra={"sid": _sid(), "path": path})
         emit("error", {"message": str(e)})
 
-@socketio.on("list_roots")  # <-- NEW: list all roots
-def on_list_roots(data):
+@socketio.on("list_roots")
+def on_list_roots(_data):
     _dbg("LIST ROOTS RECEIVED", sid=_sid())
     try:
         roots = fs.list_roots()
@@ -127,7 +147,7 @@ def on_list_roots(data):
         log.exception("list_roots failed", extra={"sid": _sid()})
         emit("error", {"message": str(e)})
 
-# LEGACY: kept for backward compatibility (acts like add_root)
+# Legacy alias
 @socketio.on("set_root")
 def on_set_root(data):
     _ok("SET ROOT (LEGACY) -> forwarding to add_root", sid=_sid())
@@ -141,12 +161,14 @@ def on_list_dir(data):
     try:
         abs_path = fs.resolve(path)
         children = fs.list_dir(abs_path, excludes=excludes)
+        _touch_for_root(abs_path)
         emit("listing", {"path": abs_path, "children": children})
         _ok("LISTING EMITTED", sid=_sid(), path=abs_path, count=len(children))
     except Exception as e:
         log.exception("list_dir failed", extra={"sid": _sid(), "path": path})
         emit("error", {"message": str(e)})
 
+# ---- WATCH -------------------------------------------------------------------
 @socketio.on("watch_enable")
 def on_watch_enable(data):
     path = (data or {}).get("path", "").strip()
@@ -181,6 +203,20 @@ def on_log_level(data):
     logging.getLogger().setLevel(level)
     _ok("LOG LEVEL SET", level=lvl)
 
+# ---- APP STATE / FAVOURITES --------------------------------------------------
+@socketio.on("get_app_state")
+def on_get_app_state(_data):
+    emit("app_state", app_state.snapshot())
+    _dbg("APP STATE EMITTED", sid=_sid())
+
+@socketio.on("toggle_favorite_root")
+def on_toggle_favorite_root(data):
+    path = _abs((data or {}).get("path", ""))
+    fav = app_state.toggle_favorite(path)
+    emit("favorite_toggled", {"path": path, "favorite": fav})
+    emit("app_state", app_state.snapshot())
+    _ok("FAVORITE TOGGLED", sid=_sid(), path=path, favorite=fav)
+
 # -----------------------------------------------------------------------------
 # Event bridge from registry -> client socket
 # -----------------------------------------------------------------------------
@@ -190,29 +226,38 @@ def _on_fs_event(evt: dict):
     def _send():
         try:
             socketio.emit("fs_event", evt, to=sid)
-            _dbg("FS EVENT FORWARDED",
-                 sid=sid,
-                 kind=evt.get("event"),
-                 path=evt.get("path"),
-                 dest=evt.get("dest_path"),
-                 is_dir=bool(evt.get("is_dir")),
-                 seq=evt.get("seq"))
+            _dbg(
+                "FS EVENT FORWARDED",
+                sid=sid,
+                kind=evt.get("event"),
+                path=evt.get("path"),
+                dest=evt.get("dest_path"),
+                is_dir=bool(evt.get("is_dir")),
+                seq=evt.get("seq"),
+            )
         except Exception:
             log.exception("failed to forward fs_event", extra={"sid": sid, "evt": evt})
 
     socketio.start_background_task(_send)
 
 # -----------------------------------------------------------------------------
-# Optional startup roots (no watch auto-start)
+# Startup restoration
 # -----------------------------------------------------------------------------
 def start_watcher_on_startup():
-    """Optional root bootstrap from env; does NOT start watches."""
-    root = os.environ.get("GRAPHFS_ROOT")
-    if not root:
-        _dbg("STARTUP ROOT", note="no GRAPHFS_ROOT set")
-        return
+    """
+    Restore previously active roots from app_state (if they still exist).
+    We do NOT auto-enable watches here; a fresh connection will do that.
+    """
+    restored = 0
     try:
-        abs_root = fs.add_root(root)
-        _ok("STARTUP ROOT SET FROM ENV", root=abs_root)
+        for info in app_state.actives():
+            p = info.get("path")
+            if p and os.path.isdir(p):
+                try:
+                    fs.add_root(p)
+                    restored += 1
+                except Exception:
+                    pass
+        _ok("RESTORED SAVED ACTIVE ROOTS", count=restored, appdata_dir=app_state.dir)
     except Exception:
-        log.exception("Failed to add root from GRAPHFS_ROOT", extra={"wanted": root})
+        log.exception("Failed to restore saved roots")

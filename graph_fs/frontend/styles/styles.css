@@ -65,6 +65,11 @@ button:active {
   transform: translateY(2px);
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .hint {
   opacity: 0.75;
   font-size: 0.8rem;
@@ -160,6 +165,14 @@ main {
 }
 
 /* Roots Panel */
+.roots-section {
+  margin-bottom: 32px;
+}
+
+.roots-section:last-child {
+  margin-bottom: 0;
+}
+
 .roots-header {
   display: flex;
   justify-content: space-between;
@@ -170,6 +183,7 @@ main {
 .roots-header h3 {
   margin: 0;
   font-size: 1.1rem;
+  color: var(--white-text-1);
 }
 
 .small-btn {
@@ -180,7 +194,13 @@ main {
 #roots-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.fav-list, .active-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .root-item {
@@ -200,9 +220,9 @@ main {
 }
 
 .root-item.active {
-  border-color: #ffa000;
+  border-color: #4CAF50;
   border-width: 2px;
-  background-color: rgba(255, 160, 0, 0.05);
+  background-color: rgba(76, 175, 80, 0.05);
 }
 
 .root-info {
@@ -210,33 +230,47 @@ main {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.root-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--white-text-1);
 }
 
 .root-path {
   font-family: monospace;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--white-text-1);
+  opacity: 0.7;
   word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .active-badge {
   display: inline-block;
   padding: 2px 8px;
-  background-color: #ffa000;
+  background-color: #4CAF50;
   color: white;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   border-radius: 4px;
   margin-top: 4px;
   width: fit-content;
+  text-transform: uppercase;
 }
 
 .root-actions {
   display: flex;
   gap: 4px;
+  margin-left: 12px;
 }
 
 .icon-btn {
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 1.2rem;
   line-height: 1;
   border-radius: 4px;
@@ -244,12 +278,53 @@ main {
   border: 1px solid var(--border-light);
   cursor: pointer;
   transition: all 0.15s ease;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.icon-btn:hover {
-  background-color: #ff4444;
-  color: white;
+.icon-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Star button styling */
+.icon-btn.starred {
+  color: #ffa000;
+  font-size: 1.3rem;
+}
+
+.icon-btn.starred:hover {
+  background-color: rgba(255, 160, 0, 0.1);
+  border-color: #ffa000;
+}
+
+/* Remove button styling */
+.icon-btn.active-remove {
+  font-size: 1.5rem;
+  color: #ff4444;
+}
+
+.icon-btn.active-remove:hover {
+  background-color: rgba(255, 68, 68, 0.1);
   border-color: #ff4444;
+}
+
+/* Activate button styling */
+.icon-btn.fav-activate:hover:not(:disabled) {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: #4CAF50;
+  color: #4CAF50;
 }
 
 /* Files Panel */
@@ -395,170 +470,16 @@ main {
 }
 
 [data-theme="dark"] .root-item.active {
-  background-color: rgba(255, 160, 0, 0.1);
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: #4CAF50;
 }
 
 [data-theme="dark"] .icon-btn {
   border-color: var(--border-dark);
 }
 
-
-/* Add these styles to your existing styles.css file */
-
-/* Root item states */
-.root-item {
-    padding: 12px;
-    margin-bottom: 8px;
-    background: var(--surface-color, #2a2a2a);
-    border-radius: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all 0.2s ease;
-}
-
-.root-item.hidden {
-    opacity: 0.5;
-    background: var(--surface-dim, #1a1a1a);
-}
-
-.root-item:hover {
-    background: var(--surface-hover, #333333);
-}
-
-.root-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-
-.root-name {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text-primary, #ffffff);
-}
-
-.root-path {
-    font-size: 12px;
-    color: var(--text-secondary, #999999);
-    font-family: monospace;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.root-actions {
-    display: flex;
-    gap: 6px;
-    margin-left: 12px;
-}
-
-/* Badge styles */
-.hidden-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    background: var(--badge-bg, #555555);
-    color: var(--badge-text, #ffffff);
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    margin-top: 4px;
-    align-self: flex-start;
-}
-
-/* Icon button styles */
-.icon-btn {
-    background: var(--button-bg, #444444);
-    border: none;
-    color: var(--button-text, #ffffff);
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.icon-btn:hover {
-    background: var(--button-hover, #555555);
-    transform: scale(1.05);
-}
-
-.icon-btn:active {
-    transform: scale(0.95);
-}
-
-.toggle-visibility-btn {
-    min-width: 36px;
-}
-
-.remove-root {
-    font-size: 20px;
-    color: #ff6b6b;
-}
-
-.remove-root:hover {
-    background: #ff6b6b;
-    color: white;
-}
-
-/* Small button for Clear All */
-.small-btn {
-    padding: 4px 10px;
-    font-size: 12px;
-    background: var(--danger-bg, #dc3545);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.small-btn:hover {
-    background: var(--danger-hover, #c82333);
-    transform: scale(1.05);
-}
-
-/* Roots header */
-.roots-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding: 0 4px;
-}
-
-.roots-header h3 {
-    margin: 0;
-    font-size: 16px;
-    color: var(--text-primary, #ffffff);
-}
-
-/* Placeholder text */
-.placeholder {
-    text-align: center;
-    color: var(--text-secondary, #999999);
-    padding: 24px;
-    font-style: italic;
-}
-
-/* Light theme overrides */
-[data-theme="light"] {
-    --surface-color: #f5f5f5;
-    --surface-dim: #e0e0e0;
-    --surface-hover: #e8e8e8;
-    --text-primary: #000000;
-    --text-secondary: #666666;
-    --button-bg: #dddddd;
-    --button-hover: #cccccc;
-    --button-text: #000000;
-    --badge-bg: #dddddd;
-    --badge-text: #000000;
-    --danger-bg: #dc3545;
-    --danger-hover: #c82333;
+[data-theme="dark"] .root-name,
+[data-theme="dark"] .root-path,
+[data-theme="dark"] .roots-header h3 {
+  color: var(--dark-text-1);
 }

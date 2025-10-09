@@ -10,6 +10,10 @@ helper/
 *.so
 
 slideshow/
+# runtime logs & app state
+logs/
+appdata/
+**/state.json
 
 # Distribution / packaging
 .Python

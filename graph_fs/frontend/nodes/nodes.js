@@ -1,4 +1,4 @@
-// nodes.js - Multi-root forest with hide/show state preservation
+// nodes.js - Multi-root forest with proper app state integration
 import { GraphRenderer } from './graph-renderer.js';
 import { SocketManager } from './../socket-manager.js';
 
@@ -23,10 +23,7 @@ let linksData = [];
 let nodesMap = new Map();
 let selectedFiles = new Set();
 let openFolders = new Set();
-let rootsMap = new Map(); // absRoot -> { name, path, hidden }
-
-// Hidden state preservation (survives hide/show cycles)
-let hiddenRootStates = new Map(); // rootPath -> { selectedFiles: Set, openFolders: Set }
+let rootsMap = new Map(); // absRoot -> { name, path }
 
 // Managers
 let renderer = null;
@@ -41,12 +38,13 @@ window.selectedFiles = selectedFiles;
 window.addRoot = addRoot;
 window.removeRoot = removeRoot;
 window.setRoot = addRoot; // legacy alias
-window.toggleRootVisibility = toggleRootVisibility;
 window.updateGraph = updateGraph;
 window.updateColorVariables = updateColorVariables;
 window.getExcludes = () => excludes;
 window.setExcludes = (newExcludes) => { excludes = newExcludes; };
 window.toDisplayPath = toDisplayPath;
+window.toggleFavoriteRoot = toggleFavoriteRoot;
+window.requestAppState = requestAppState;
 
 // -------------------- helpers --------------------
 
@@ -117,10 +115,26 @@ window.disableWatch = (pathOrNull) => {
     socketManager?.watchDisable(p);
 };
 
+// -------------------- App State / Favorites --------------------
+
+function requestAppState() {
+    console.log('[nodes] requesting app state');
+    if (socketManager) {
+        socketManager.getAppState();
+    }
+}
+
+function toggleFavoriteRoot(path) {
+    console.log('[nodes] toggling favorite for', path);
+    if (socketManager) {
+        socketManager.toggleFavoriteRoot(path);
+    }
+}
+
 // -------------------- init --------------------
 
 function initializeGraph() {
-    console.log('initializeGraph (multi-root with hide/show)');
+    console.log('initializeGraph (multi-root)');
     const graphContainerEl = document.getElementById('graph');
 
     renderer = new GraphRenderer();
@@ -133,11 +147,20 @@ function initializeGraph() {
 
 function setupSocketHandlers() {
     socketManager.onServerInfo = (data) => {
+        console.log('[nodes] server_info received', data);
         // Load existing roots from server on connect
         if (Array.isArray(data?.roots)) {
             data.roots.forEach(r => {
                 if (r?.path) handleRootAdded(r.path, r.name);
             });
+        }
+        
+        // Dispatch app state if present
+        if (data?.state) {
+            console.log('[nodes] dispatching initial app_state', data.state);
+            document.dispatchEvent(new CustomEvent('graphfs:app_state', { 
+                detail: data.state 
+            }));
         }
     };
 
@@ -179,6 +202,21 @@ function setupSocketHandlers() {
         log(`[srv] ERROR ← ${data?.message || 'unknown'}`);
         alert('Server error: ' + (data?.message || 'unknown'));
     };
+
+    // App state handlers
+    socketManager.onAppState = (state) => {
+        console.log('[nodes] app_state received', state);
+        document.dispatchEvent(new CustomEvent('graphfs:app_state', { 
+            detail: state 
+        }));
+    };
+
+    socketManager.onFavoriteToggled = (data) => {
+        console.log('[nodes] favorite_toggled', data);
+        document.dispatchEvent(new CustomEvent('graphfs:favorite_toggled', { 
+            detail: data 
+        }));
+    };
 }
 
 // -------------------- Multi-root API --------------------
@@ -195,7 +233,7 @@ function removeRoot(path) {
 function handleRootAdded(rootAbsPath, rootName) {
     const name = rootName || basename(rootAbsPath);
     const key = norm(rootAbsPath);
-    rootsMap.set(key, { name, path: rootAbsPath, hidden: false });
+    rootsMap.set(key, { name, path: rootAbsPath });
 
     // Create visual root node if new
     if (!nodesMap.has(rootAbsPath)) {
@@ -209,7 +247,6 @@ function handleRootAdded(rootAbsPath, rootName) {
 function handleRootRemoved(rootAbsPath) {
     const key = norm(rootAbsPath);
     rootsMap.delete(key);
-    hiddenRootStates.delete(key); // Clear preserved state
 
     // Remove root node and all its descendants
     const rootNode = nodesMap.get(rootAbsPath);
@@ -219,131 +256,11 @@ function handleRootRemoved(rootAbsPath) {
     }
 }
 
-// -------------------- Hide/Show Logic --------------------
-
-function toggleRootVisibility(rootPath, shouldHide) {
-    const key = norm(rootPath);
-    const rootInfo = rootsMap.get(key);
-    if (!rootInfo) return;
-
-    rootInfo.hidden = shouldHide;
-
-    if (shouldHide) {
-        hideRootTree(rootPath);
-    } else {
-        showRootTree(rootPath);
-    }
-}
-
-function hideRootTree(rootPath) {
-    const rootNode = nodesMap.get(rootPath);
-    if (!rootNode) return;
-
-    // Preserve state for this root
-    const rootSelectedFiles = new Set();
-    const rootOpenFolders = new Set();
-
-    // Collect all descendants
-    const allNodes = [rootNode, ...getDescendantNodes(rootNode)];
-    
-    allNodes.forEach(node => {
-        if (node.type === 'file' && selectedFiles.has(node.id)) {
-            rootSelectedFiles.add(node.id);
-            selectedFiles.delete(node.id); // Remove from global selection
-        }
-        if (node.type === 'folder' && openFolders.has(node.id)) {
-            rootOpenFolders.add(node.id);
-        }
-    });
-
-    // Store preserved state
-    hiddenRootStates.set(norm(rootPath), { 
-        selectedFiles: rootSelectedFiles, 
-        openFolders: rootOpenFolders 
-    });
-
-    // Remove from graph (but NOT from nodesMap - we keep the tree structure!)
-    const idsToHide = allNodes.map(n => n.id);
-    
-    nodesData = nodesData.filter(n => !idsToHide.includes(n.id));
-    linksData = linksData.filter(l =>
-        !idsToHide.includes(l.source.id || l.source) &&
-        !idsToHide.includes(l.target.id || l.target)
-    );
-
-    updateGraph();
-    log(`[hide] hidden tree → ${rootPath} (preserved ${rootSelectedFiles.size} selections, ${rootOpenFolders.size} open folders)`);
-}
-
-function showRootTree(rootPath) {
-    const rootNode = nodesMap.get(rootPath);
-    if (!rootNode) return;
-
-    // Restore preserved state
-    const preserved = hiddenRootStates.get(norm(rootPath));
-    if (preserved) {
-        preserved.selectedFiles.forEach(id => {
-            selectedFiles.add(id);
-            const node = nodesMap.get(id);
-            if (node) node.selected = true;
-        });
-        // openFolders are already tracked in nodesMap
-    }
-
-    // Re-add root and its visible descendants to render lists
-    const visibleNodes = [rootNode];
-    const visibleLinks = [];
-
-    const addVisibleDescendants = (parent) => {
-        if (!parent.isOpen || !parent.children) return;
-        parent.children.forEach(child => {
-            visibleNodes.push(child);
-            visibleLinks.push({ source: parent, target: child });
-            if (child.type === 'folder' && child.isOpen) {
-                addVisibleDescendants(child);
-            }
-        });
-    };
-
-    addVisibleDescendants(rootNode);
-
-    nodesData.push(...visibleNodes);
-    linksData.push(...visibleLinks);
-
-    updateGraph();
-
-    // Refresh any open folders to sync with current filesystem state
-    if (preserved && preserved.openFolders.size > 0) {
-        preserved.openFolders.forEach(folderPath => {
-            if (openFolders.has(folderPath)) {
-                socketManager.listDir(folderPath, excludes);
-            }
-        });
-    }
-
-    log(`[show] shown tree → ${rootPath} (restored ${preserved?.selectedFiles.size || 0} selections)`);
-}
-
-function getDescendantNodes(node) {
-    const descendants = [];
-    const stack = [...(node.children || [])];
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-        descendants.push(current);
-        if (current.children && current.children.length > 0) {
-            stack.push(...current.children);
-        }
-    }
-    return descendants;
-}
-
 function clearData() {
     nodesMap.clear();
     selectedFiles.clear();
     openFolders.clear();
     rootsMap.clear();
-    hiddenRootStates.clear();
     nodesData = [];
     linksData = [];
 }
@@ -451,7 +368,6 @@ function collapseFolder(node) {
 // -------------------- listings & fs events --------------------
 
 function handleListing(dirPath, children) {
-    // Accept listings even for hidden roots (watch is still active!)
     if (!openFolders.has(dirPath) || !nodesMap.has(dirPath)) {
         return;
     }
@@ -494,43 +410,18 @@ function handleListing(dirPath, children) {
             parentNode.children.push(childNode);
         }
 
-        // Check if parent's root is hidden
-        let rootPath = dirPath;
-        for (const r of rootsMap.keys()) {
-            if (isUnderRoot(dirPath, r)) {
-                rootPath = r;
-                break;
-            }
-        }
-        const rootInfo = rootsMap.get(norm(rootPath));
-        const isHidden = rootInfo?.hidden;
-
-        // Only add to render lists if root is visible
-        if (!isHidden) {
-            const linkExists = linksData.some(l =>
-                (l.source.id || l.source) === parentNode.id &&
-                (l.target.id || l.target) === childNode.id
-            );
-            if (!linkExists) {
-                newLinks.push({ source: parentNode, target: childNode });
-            }
+        const linkExists = linksData.some(l =>
+            (l.source.id || l.source) === parentNode.id &&
+            (l.target.id || l.target) === childNode.id
+        );
+        if (!linkExists) {
+            newLinks.push({ source: parentNode, target: childNode });
         }
     });
 
-    // Only add new nodes/links to render lists if root is visible
-    let rootPath = dirPath;
-    for (const r of rootsMap.keys()) {
-        if (isUnderRoot(dirPath, r)) {
-            rootPath = r;
-            break;
-        }
-    }
-    const rootInfo = rootsMap.get(norm(rootPath));
-    if (!rootInfo?.hidden) {
-        nodesData.push(...newNodes);
-        linksData.push(...newLinks);
-        updateGraph();
-    }
+    nodesData.push(...newNodes);
+    linksData.push(...newLinks);
+    updateGraph();
 
     children.forEach(child => {
         if (child.type === 'folder' && openFolders.has(child.path)) {
@@ -602,13 +493,6 @@ function renameOpenFolder(oldPath, newPath) {
         }
         updateSetRename(selectedFiles, oldId, rebase(oldId));
 
-        // Update hidden state preservation if this root was renamed
-        if (n.isRoot && hiddenRootStates.has(norm(oldId))) {
-            const state = hiddenRootStates.get(norm(oldId));
-            hiddenRootStates.delete(norm(oldId));
-            hiddenRootStates.set(norm(rebase(oldId)), state);
-        }
-
         nodesMap.delete(oldId);
         n.id = rebase(oldId);
         n.fullPath = n.id;
@@ -643,22 +527,9 @@ function addChildIfVisible(parentPath, childPath, childName, type) {
     parentNode.children = parentNode.children || [];
     parentNode.children.push(childNode);
 
-    // Check if parent's root is hidden
-    let rootPath = parentPath;
-    for (const r of rootsMap.keys()) {
-        if (isUnderRoot(parentPath, r)) {
-            rootPath = r;
-            break;
-        }
-    }
-    const rootInfo = rootsMap.get(norm(rootPath));
-    
-    // Only add to render lists if root is visible
-    if (!rootInfo?.hidden) {
-        nodesData.push(childNode);
-        linksData.push({ source: parentNode, target: childNode });
-        updateGraph();
-    }
+    nodesData.push(childNode);
+    linksData.push({ source: parentNode, target: childNode });
+    updateGraph();
     
     log(`[ui.apply] add → parent=${parentPath} child=${childPath}`);
     return true;
