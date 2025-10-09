@@ -12,9 +12,9 @@ from .logging_utils import get_logger, block
 # App + Socket.IO setup
 # -----------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(__file__)
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
-app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/")
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/")
 
 # Keep access logs quiet in console; you can re-enable via GRAPHFS_ACCESS_LOG=1 env.
 socketio = SocketIO(
@@ -55,7 +55,7 @@ def _err(title: str, **fields):
 # -----------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return send_from_directory(STATIC_DIR, "index.html")
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 @app.route("/health")
 def health():
@@ -89,12 +89,17 @@ def on_set_root(data):
         emit("root_set", {"root": fs.root})
         _dbg("ROOT SET EMITTED", sid=_sid(), root=fs.root)
 
+        # AUTO-ENABLE WATCH ON ROOT
+        registry.enable(_sid(), fs.root, _on_fs_event, recursive=True)
+        _ok("WATCH AUTO-ENABLED ON ROOT", sid=_sid(), path=fs.root)
+
         children = fs.list_dir(fs.root, excludes=excludes)
         emit("listing", {"path": fs.root, "children": children})
         _ok("LISTING EMITTED (NEW ROOT)", sid=_sid(), path=fs.root, count=len(children))
     except Exception as e:
         log.exception("set_root failed", extra={"sid": _sid(), "path": path})
         emit("error", {"message": str(e)})
+
 
 @socketio.on("list_dir")
 def on_list_dir(data):
