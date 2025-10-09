@@ -1,0 +1,5 @@
+/* graph_fs/frontend/index.css */
+/* Single entry that cascades your existing styles */
+@import url("/styles/variables.css");
+@import url("/styles/styles.css");
+/* keep this for future per-page tweaks if needed */

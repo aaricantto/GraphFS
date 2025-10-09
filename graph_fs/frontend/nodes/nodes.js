@@ -1,6 +1,6 @@
 // nodes.js - File tree business logic and data management
 import { GraphRenderer } from './graph-renderer.js';
-import { SocketManager } from './socket-manager.js';
+import { SocketManager } from './../socket-manager.js';
 
 class Node {
     constructor(nodeName, fullPath, type, children = [], isOpen = false, depth = 0) {
