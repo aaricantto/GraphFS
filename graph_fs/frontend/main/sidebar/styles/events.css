@@ -1,0 +1,33 @@
+/* Events Panel Styles */
+
+/* Already defined in layout.css, but can add extras here if needed */
+
+/* Optional: Add event type badges */
+.event-type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.event-type-badge.created {
+  background-color: var(--state-ok);
+  color: white;
+}
+
+.event-type-badge.deleted {
+  background-color: var(--state-err);
+  color: white;
+}
+
+.event-type-badge.modified {
+  background-color: var(--state-warn);
+  color: white;
+}
+
+.event-type-badge.moved {
+  background-color: var(--accent);
+  color: white;
+}

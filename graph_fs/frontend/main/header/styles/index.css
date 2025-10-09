@@ -1,0 +1,16 @@
+/* Header-specific styles (currently minimal, using layout.css) */
+
+/* Future: Add header-specific interactions, dropdowns, etc. */
+
+.header-row button:hover {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.header-row button:active {
+  transform: translateY(2px);
+}
+
+#toggle-theme-btn {
+  font-size: 1.2rem;
+  min-width: 48px;
+}

@@ -1,0 +1,69 @@
+/* Files Panel Extended Styles */
+
+/* Action buttons */
+.files-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px 16px;
+  font-weight: 500;
+}
+
+.action-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn:not(.disabled):hover {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-1);
+}
+
+/* Success notification */
+.copy-success-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: var(--state-ok);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.copy-success-notification.fade-out {
+  animation: fadeOut 0.3s ease;
+  opacity: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

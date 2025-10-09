@@ -1,0 +1,26 @@
+/* Lasso selection rectangle */
+
+.lasso {
+  fill: color-mix(in srgb, #0066ff 15%, transparent);
+  stroke: #0066ff;
+  stroke-width: 1px;
+  stroke-dasharray: 4, 2;
+  pointer-events: none;
+  animation: lasso-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes lasso-pulse {
+  0%, 100% {
+    stroke-opacity: 0.8;
+  }
+  50% {
+    stroke-opacity: 0.4;
+  }
+}
+
+/* Active lasso state */
+.lasso.active {
+  stroke-width: 2px;
+  stroke-dasharray: none;
+  animation: none;
+}
