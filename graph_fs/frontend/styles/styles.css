@@ -483,3 +483,176 @@ main {
 [data-theme="dark"] .roots-header h3 {
   color: var(--dark-text-1);
 }
+
+/* Add to graph_fs/frontend/styles/styles.css */
+
+/* Orderable file items */
+.file-item.orderable {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.file-item.orderable:active {
+  cursor: grabbing;
+}
+
+.file-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.file-item.drag-over {
+  border-color: #ffa000;
+  background-color: rgba(255, 160, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* File number badge */
+.file-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background-color: #ffa000;
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* Drag handle */
+.drag-handle {
+  color: var(--white-text-1);
+  opacity: 0.4;
+  font-size: 1.2rem;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.drag-handle:hover {
+  opacity: 0.8;
+}
+
+.file-item.orderable:active .drag-handle {
+  cursor: grabbing;
+}
+
+/* Remove button styling */
+.icon-btn.remove-file {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #ff4444;
+  padding: 4px 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.icon-btn.remove-file:hover {
+  background-color: rgba(255, 68, 68, 0.1);
+  border-color: #ff4444;
+  transform: scale(1.15);
+}
+
+/* Updated file info to work with new layout */
+.file-item.orderable .file-info {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.file-item.orderable .file-icon {
+  flex-shrink: 0;
+}
+
+/* Action buttons */
+.files-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px 16px;
+  font-weight: 500;
+}
+
+.action-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn:not(.disabled):hover {
+  background-color: rgba(255, 160, 0, 0.1);
+  border-color: #ffa000;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+/* Success notification */
+.copy-success-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.copy-success-notification.fade-out {
+  animation: fadeOut 0.3s ease;
+  opacity: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .file-number {
+  background-color: #ff8c00;
+}
+
+[data-theme="dark"] .drag-handle {
+  color: var(--dark-text-1);
+}
+
+[data-theme="dark"] .copy-success-notification {
+  background-color: #45a049;
+}
+
+[data-theme="dark"] .file-item.drag-over {
+  background-color: rgba(255, 160, 0, 0.15);
+}

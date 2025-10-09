@@ -143,6 +143,31 @@ function initializeGraph() {
     socketManager = new SocketManager();
     setupSocketHandlers();
     socketManager.connect();
+
+    // ========== EVENT-DRIVEN DESELECTION ==========
+    // Listen for file deselection events from the Files panel
+    document.addEventListener('graphfs:deselect_file', (e) => {
+        const { path } = e.detail || {};
+        if (!path) return;
+        
+        log(`[event] deselect_file → ${path}`);
+        
+        // Find the node and deselect it
+        const node = nodesMap.get(path);
+        if (node && node.type === 'file' && node.selected) {
+            node.selected = false;
+            selectedFiles.delete(path);
+            
+            // Update visual state
+            requestAnimationFrame(() => {
+                if (renderer) {
+                    renderer.updateNodeColors();
+                    renderer.updateLinkColors();
+                }
+            });
+        }
+    });
+    // ====================================
 }
 
 function setupSocketHandlers() {
