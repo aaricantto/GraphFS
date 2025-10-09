@@ -403,3 +403,162 @@ main {
 }
 
 
+/* Add these styles to your existing styles.css file */
+
+/* Root item states */
+.root-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--surface-color, #2a2a2a);
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.root-item.hidden {
+    opacity: 0.5;
+    background: var(--surface-dim, #1a1a1a);
+}
+
+.root-item:hover {
+    background: var(--surface-hover, #333333);
+}
+
+.root-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.root-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #ffffff);
+}
+
+.root-path {
+    font-size: 12px;
+    color: var(--text-secondary, #999999);
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.root-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: 12px;
+}
+
+/* Badge styles */
+.hidden-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--badge-bg, #555555);
+    color: var(--badge-text, #ffffff);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: 4px;
+    align-self: flex-start;
+}
+
+/* Icon button styles */
+.icon-btn {
+    background: var(--button-bg, #444444);
+    border: none;
+    color: var(--button-text, #ffffff);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: var(--button-hover, #555555);
+    transform: scale(1.05);
+}
+
+.icon-btn:active {
+    transform: scale(0.95);
+}
+
+.toggle-visibility-btn {
+    min-width: 36px;
+}
+
+.remove-root {
+    font-size: 20px;
+    color: #ff6b6b;
+}
+
+.remove-root:hover {
+    background: #ff6b6b;
+    color: white;
+}
+
+/* Small button for Clear All */
+.small-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--danger-bg, #dc3545);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.small-btn:hover {
+    background: var(--danger-hover, #c82333);
+    transform: scale(1.05);
+}
+
+/* Roots header */
+.roots-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 0 4px;
+}
+
+.roots-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary, #ffffff);
+}
+
+/* Placeholder text */
+.placeholder {
+    text-align: center;
+    color: var(--text-secondary, #999999);
+    padding: 24px;
+    font-style: italic;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+    --surface-color: #f5f5f5;
+    --surface-dim: #e0e0e0;
+    --surface-hover: #e8e8e8;
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --button-bg: #dddddd;
+    --button-hover: #cccccc;
+    --button-text: #000000;
+    --badge-bg: #dddddd;
+    --badge-text: #000000;
+    --danger-bg: #dc3545;
+    --danger-hover: #c82333;
+}

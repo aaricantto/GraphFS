@@ -1,10 +1,10 @@
-// sidebar/roots-panel.js - Multi-root management panel with actual backend integration
+// sidebar/roots-panel.js - Multi-root management with hide/show
 
 export class RootsPanel {
     constructor() {
         this.rootsListEl = null;
         this.clearBtn = null;
-        this.roots = new Map(); // path -> { path, name, active, addedAt }
+        this.roots = new Map(); // path -> { path, name, hidden, addedAt }
     }
 
     initialize() {
@@ -28,7 +28,6 @@ export class RootsPanel {
         // Legacy support
         const originalOnRootSet = window.onRootSet;
         window.onRootSet = (root) => {
-            // This will be triggered by the custom event above
             if (originalOnRootSet) originalOnRootSet(root);
         };
 
@@ -37,18 +36,13 @@ export class RootsPanel {
 
     addRoot(path, name) {
         if (!path) return;
-        
-        // Mark all existing roots as inactive
-        this.roots.forEach(root => {
-            root.active = false;
-        });
 
-        // Add or update this root
+        // Add or update this root (all roots visible by default)
         const rootName = name || path.split(/[/\\]/).filter(Boolean).pop();
         this.roots.set(path, {
             path,
             name: rootName,
-            active: true,
+            hidden: false,
             addedAt: new Date()
         });
 
@@ -56,6 +50,24 @@ export class RootsPanel {
         
         if (window.logEvent) {
             window.logEvent(`[roots] added → ${path}`);
+        }
+    }
+
+    toggleHidden(path) {
+        const root = this.roots.get(path);
+        if (!root) return;
+
+        root.hidden = !root.hidden;
+
+        // Call nodes.js to hide/show the tree
+        if (window.toggleRootVisibility) {
+            window.toggleRootVisibility(path, root.hidden);
+        }
+
+        this.render();
+
+        if (window.logEvent) {
+            window.logEvent(`[roots] ${root.hidden ? 'hidden' : 'shown'} → ${path}`);
         }
     }
 
@@ -100,21 +112,24 @@ export class RootsPanel {
         if (!this.rootsListEl) return;
 
         if (this.roots.size === 0) {
-            this.rootsListEl.innerHTML = '<p class="placeholder">No roots set. Use "Set Root" above to add one.</p>';
+            this.rootsListEl.innerHTML = '<p class="placeholder">No roots set. Use "Add Root" above to add one.</p>';
             return;
         }
 
         const rootsArray = Array.from(this.roots.values()).reverse(); // newest first
         
         this.rootsListEl.innerHTML = rootsArray.map(root => `
-            <div class="root-item ${root.active ? 'active' : ''}">
+            <div class="root-item ${root.hidden ? 'hidden' : ''}">
                 <div class="root-info">
                     <div class="root-name">${root.name}</div>
                     <div class="root-path" title="${root.path}">${this.truncatePath(root.path)}</div>
-                    ${root.active ? '<span class="active-badge">ACTIVE</span>' : ''}
+                    ${root.hidden ? '<span class="hidden-badge">HIDDEN</span>' : ''}
                 </div>
                 <div class="root-actions">
-                    <button class="icon-btn watch-btn" data-path="${root.path}" title="Enable watch on this root">👁</button>
+                    <button class="icon-btn toggle-visibility-btn" data-path="${root.path}" 
+                            title="${root.hidden ? 'Show this root tree' : 'Hide this root tree'}">
+                        ${root.hidden ? '👁‍🗨' : '👁'}
+                    </button>
                     <button class="icon-btn remove-root" data-path="${root.path}" title="Remove this root">×</button>
                 </div>
             </div>
@@ -128,15 +143,10 @@ export class RootsPanel {
             });
         });
 
-        this.rootsListEl.querySelectorAll('.watch-btn').forEach(btn => {
+        this.rootsListEl.querySelectorAll('.toggle-visibility-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const path = e.target.dataset.path;
-                if (window.enableWatch) {
-                    window.enableWatch(path);
-                    if (window.logEvent) {
-                        window.logEvent(`[roots] watch enabled → ${path}`);
-                    }
-                }
+                this.toggleHidden(path);
             });
         });
     }
