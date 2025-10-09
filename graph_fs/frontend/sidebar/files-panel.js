@@ -1,4 +1,4 @@
-// sidebar/files-panel.js - Selected files panel (STUB for now)
+// sidebar/files-panel.js - Selected files panel (with relative display paths)
 
 export class FilesPanel {
     constructor() {
@@ -42,15 +42,16 @@ export class FilesPanel {
             return;
         }
 
-        // List selected files (no content yet - backend not ready)
+        // List selected files (relative display path; absolute kept in tooltip)
         const filesList = Array.from(this.selectedFiles).map(path => {
             const name = path.split(/[/\\]/).pop();
+            const displayPath = (typeof window.toDisplayPath === 'function') ? window.toDisplayPath(path) : path;
             return `
                 <div class="file-item">
                     <div class="file-icon">📄</div>
                     <div class="file-info">
                         <div class="file-name">${name}</div>
-                        <div class="file-path" title="${path}">${path}</div>
+                        <div class="file-path" title="${path}">${displayPath}</div>
                     </div>
                 </div>
             `;

@@ -1,10 +1,10 @@
-// sidebar/roots-panel.js - Manage multiple roots (visual only for now)
+// sidebar/roots-panel.js - Multi-root management panel with actual backend integration
 
 export class RootsPanel {
     constructor() {
         this.rootsListEl = null;
         this.clearBtn = null;
-        this.roots = new Map(); // path -> { path, active, addedAt }
+        this.roots = new Map(); // path -> { path, name, active, addedAt }
     }
 
     initialize() {
@@ -15,17 +15,27 @@ export class RootsPanel {
             this.clearBtn.addEventListener('click', () => this.clearAll());
         }
 
-        // Listen for root_set events from nodes.js
+        // Listen for root_added events from nodes.js
+        document.addEventListener('graphfs:root_added', (e) => {
+            this.addRoot(e.detail.root, e.detail.name);
+        });
+
+        // Listen for root_removed events
+        document.addEventListener('graphfs:root_removed', (e) => {
+            this.removeRootFromUI(e.detail.root);
+        });
+
+        // Legacy support
         const originalOnRootSet = window.onRootSet;
         window.onRootSet = (root) => {
-            this.addRoot(root);
+            // This will be triggered by the custom event above
             if (originalOnRootSet) originalOnRootSet(root);
         };
 
         this.render();
     }
 
-    addRoot(path) {
+    addRoot(path, name) {
         if (!path) return;
         
         // Mark all existing roots as inactive
@@ -34,8 +44,10 @@ export class RootsPanel {
         });
 
         // Add or update this root
+        const rootName = name || path.split(/[/\\]/).filter(Boolean).pop();
         this.roots.set(path, {
             path,
+            name: rootName,
             active: true,
             addedAt: new Date()
         });
@@ -48,6 +60,15 @@ export class RootsPanel {
     }
 
     removeRoot(path) {
+        if (!path) return;
+
+        // Call backend to remove root
+        if (window.removeRoot) {
+            window.removeRoot(path);
+        }
+    }
+
+    removeRootFromUI(path) {
         this.roots.delete(path);
         this.render();
         
@@ -60,11 +81,18 @@ export class RootsPanel {
         if (this.roots.size === 0) return;
         
         const count = this.roots.size;
-        this.roots.clear();
-        this.render();
         
+        // Remove all roots from backend
+        const rootPaths = Array.from(this.roots.keys());
+        rootPaths.forEach(path => {
+            if (window.removeRoot) {
+                window.removeRoot(path);
+            }
+        });
+
+        // UI will update via events
         if (window.logEvent) {
-            window.logEvent(`[roots] cleared all (${count} roots)`);
+            window.logEvent(`[roots] clearing all (${count} roots)`);
         }
     }
 
@@ -81,25 +109,39 @@ export class RootsPanel {
         this.rootsListEl.innerHTML = rootsArray.map(root => `
             <div class="root-item ${root.active ? 'active' : ''}">
                 <div class="root-info">
-                    <span class="root-path" title="${root.path}">${this.truncatePath(root.path)}</span>
+                    <div class="root-name">${root.name}</div>
+                    <div class="root-path" title="${root.path}">${this.truncatePath(root.path)}</div>
                     ${root.active ? '<span class="active-badge">ACTIVE</span>' : ''}
                 </div>
                 <div class="root-actions">
+                    <button class="icon-btn watch-btn" data-path="${root.path}" title="Enable watch on this root">👁</button>
                     <button class="icon-btn remove-root" data-path="${root.path}" title="Remove this root">×</button>
                 </div>
             </div>
         `).join('');
 
-        // Attach remove handlers
+        // Attach handlers
         this.rootsListEl.querySelectorAll('.remove-root').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const path = e.target.dataset.path;
                 this.removeRoot(path);
             });
         });
+
+        this.rootsListEl.querySelectorAll('.watch-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const path = e.target.dataset.path;
+                if (window.enableWatch) {
+                    window.enableWatch(path);
+                    if (window.logEvent) {
+                        window.logEvent(`[roots] watch enabled → ${path}`);
+                    }
+                }
+            });
+        });
     }
 
-    truncatePath(path, maxLen = 40) {
+    truncatePath(path, maxLen = 50) {
         if (path.length <= maxLen) return path;
         const parts = path.split(/[/\\]/);
         if (parts.length <= 2) return path;
@@ -111,7 +153,7 @@ export class RootsPanel {
     }
 
     onActivate() {
-        // Refresh in case roots changed while panel was hidden
+        // Refresh when panel becomes visible
         this.render();
     }
 }

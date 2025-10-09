@@ -1,4 +1,4 @@
-// utility.js - Header controls and theme management (cleaned up)
+// utility.js - Header controls and theme management (multi-root edition)
 
 document.addEventListener('DOMContentLoaded', () => {
     const rootInput = document.getElementById('root-input');
@@ -9,22 +9,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const enableWatchBtn = document.getElementById('enable-watch-btn');
     const disableWatchBtn = document.getElementById('disable-watch-btn');
 
+    // Make a tiny helper so other modules can clear the field
+    window.clearRootInput = () => { if (rootInput) rootInput.value = ''; };
+
     // Load saved excludes
     loadExcludes();
 
     // Initialize theme
     initializeTheme();
 
-    // Set Root button
+    // Add Root button (changed from "Set Root")
     setRootBtn.addEventListener('click', () => {
         const path = rootInput.value.trim();
         if (path) {
             const excludes = getExcludes();
             if (window.logEvent) {
-                window.logEvent(`[ui] set_root → ${path} (excludes=${excludes.join('|')})`);
+                window.logEvent(`[ui] add_root → ${path} (excludes=${excludes.join('|')})`);
             }
-            window.setRoot(path, excludes);
+            // Use addRoot instead of setRoot
+            window.addRoot(path, excludes);
         }
+    });
+
+    // When a root is successfully added by the server, clear the input
+    document.addEventListener('graphfs:root_added', () => {
+        if (typeof window.clearRootInput === 'function') window.clearRootInput();
     });
 
     // Save Excludes button
@@ -40,10 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
         themeBtn.addEventListener('click', toggleTheme);
     }
 
-    // Enable Watch button
+    // Enable Watch button - now works on all roots if no specific path
     if (enableWatchBtn) {
         enableWatchBtn.addEventListener('click', () => {
             const p = rootInput.value.trim();
+            // If empty, enable watch on all roots
             window.enableWatch(p || null);
         });
     }

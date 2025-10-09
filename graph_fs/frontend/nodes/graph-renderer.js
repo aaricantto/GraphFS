@@ -125,7 +125,9 @@ export class GraphRenderer {
 
         this.nodeSelection = this.svg.selectAll('circle.node').data(nodesData, d => d.id);
         this.nodeSelection.exit().remove();
-        const nodeEnter = this.nodeSelection.enter().append('circle').classed('node', true).attr('r', 10)
+        const nodeEnter = this.nodeSelection.enter()
+            .append('circle').classed('node', true)
+            .attr('r', d => d.isRoot ? 12 : 10)
             .style('stroke', this.nodeStrokeColor).style('stroke-width', 1)
             .call(this.createDragHandler())
             .on('click', (event, d) => { event.stopPropagation(); if (this.onNodeClick) this.onNodeClick(d); });
@@ -149,7 +151,13 @@ export class GraphRenderer {
     updateNodeColors() {
         if (!this.nodeSelection || !this.labelSelection) return;
         this.nodeSelection
-            .style('fill', d => d.type === 'folder' ? (d.isOpen ? '#ffa000' : '#ffca28') : (d.selected ? '#32CD32' : 'red'))
+            .style('fill', d => {
+                if (d.type === 'folder') {
+                    if (d.isRoot) return '#42a5f5'; // visually distinct roots (blue)
+                    return d.isOpen ? '#ffa000' : '#ffca28'; // folders (yellow)
+                }
+                return d.selected ? '#32CD32' : 'red';
+            })
             .style('stroke', d => d.selected ? this.selectedNodeColor : this.nodeStrokeColor)
             .style('stroke-width', d => d.selected ? 2 : 1);
         this.labelSelection.style('font', d => d.selected ? 'bold 14px sans-serif' : '12px sans-serif');

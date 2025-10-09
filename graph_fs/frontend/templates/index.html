@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Graph FS (Event-Driven)</title>
+  <title>Graph FS (Multi-Root Forest)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/styles/variables.css">
   <link rel="stylesheet" href="/styles/styles.css">
@@ -10,8 +10,9 @@
 <body>
   <header>
     <div class="header-row">
-      <input id="root-input" type="text" placeholder="Set root (absolute path)" />
-      <button id="set-root-btn">Set Root</button>
+      <input id="root-input" type="text" placeholder="Add root (absolute path)" />
+      <button id="set-root-btn">Add Root</button>
+      <small class="hint">Add multiple roots to create a forest graph</small>
     </div>
     <div class="header-row">
       <input id="excludes-input" type="text" placeholder="Excludes: venv,__pycache__,*.pyc,node_modules" />
@@ -19,8 +20,8 @@
       <small class="hint">client-side filters; sent with each request</small>
     </div>
     <div class="header-row">
-      <button id="enable-watch-btn" title="Start watching the selected dir">Enable Watch</button>
-      <button id="disable-watch-btn" title="Stop watching this dir (empty = all)">Disable Watch</button>
+      <button id="enable-watch-btn" title="Start watching (empty = all roots)">Enable Watch</button>
+      <button id="disable-watch-btn" title="Stop watching (empty = all)">Disable Watch</button>
       <button id="toggle-theme-btn">🌓 Theme</button>
     </div>
   </header>
@@ -30,7 +31,6 @@
       <div id="graph"></div>
     </div>
     
-    <!-- NEW: Sidebar with tabs -->
     <div id="sidebar">
       <div id="sidebar-tabs">
         <button class="sidebar-tab active" data-panel="events">Events</button>
@@ -53,7 +53,7 @@
           <div id="roots-list"></div>
         </div>
         
-        <!-- Files Panel (stub for now) -->
+        <!-- Files Panel -->
         <div id="files-panel" class="sidebar-panel">
           <div class="files-header">
             <h3>Selected Files</h3>
