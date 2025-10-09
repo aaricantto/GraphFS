@@ -55,7 +55,7 @@ def _err(title: str, **fields):
 # -----------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return send_from_directory(FRONTEND_DIR, "index.html")
+    return send_from_directory(FRONTEND_DIR, "templates/index.html")
 
 @app.route("/health")
 def health():

@@ -1,22 +1,13 @@
-// utility.js - Header controls, theme, and utility functions
-
-let eventLogEl = null;
-let eventsPane = null;
-let eventsVisible = true;
+// utility.js - Header controls and theme management (cleaned up)
 
 document.addEventListener('DOMContentLoaded', () => {
     const rootInput = document.getElementById('root-input');
     const setRootBtn = document.getElementById('set-root-btn');
-    const rootStatus = document.getElementById('root-status');
     const excludesInput = document.getElementById('excludes-input');
     const saveExcludesBtn = document.getElementById('save-excludes-btn');
     const themeBtn = document.getElementById('toggle-theme-btn');
     const enableWatchBtn = document.getElementById('enable-watch-btn');
     const disableWatchBtn = document.getElementById('disable-watch-btn');
-    const toggleEventsBtn = document.getElementById('toggle-events-btn');
-
-    eventLogEl = document.getElementById('events');
-    eventsPane = document.getElementById('events-pane');
 
     // Load saved excludes
     loadExcludes();
@@ -24,53 +15,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize theme
     initializeTheme();
 
-    // Event listeners
+    // Set Root button
     setRootBtn.addEventListener('click', () => {
         const path = rootInput.value.trim();
         if (path) {
             const excludes = getExcludes();
-            logEvent(`[ui] set_root → ${path} (excludes=${excludes.join('|')})`);
+            if (window.logEvent) {
+                window.logEvent(`[ui] set_root → ${path} (excludes=${excludes.join('|')})`);
+            }
             window.setRoot(path, excludes);
         }
     });
 
+    // Save Excludes button
     saveExcludesBtn.addEventListener('click', () => {
         saveExcludes();
-        logEvent('[ui] excludes saved');
+        if (window.logEvent) {
+            window.logEvent('[ui] excludes saved');
+        }
     });
 
+    // Theme toggle button
     if (themeBtn) {
         themeBtn.addEventListener('click', toggleTheme);
     }
 
+    // Enable Watch button
     if (enableWatchBtn) {
         enableWatchBtn.addEventListener('click', () => {
             const p = rootInput.value.trim();
-            window.enableWatch(p || null); // null => nodes.js will use currentRoot
+            window.enableWatch(p || null);
         });
     }
 
+    // Disable Watch button
     if (disableWatchBtn) {
         disableWatchBtn.addEventListener('click', () => {
             const p = rootInput.value.trim();
-            window.disableWatch(p || null); // null => disable all for this session
+            window.disableWatch(p || null);
         });
     }
-
-    if (toggleEventsBtn && eventsPane) {
-        toggleEventsBtn.addEventListener('click', () => {
-            eventsVisible = !eventsVisible;
-            eventsPane.style.display = eventsVisible ? '' : 'none';
-            toggleEventsBtn.textContent = eventsVisible ? 'Hide Events' : 'Show Events';
-        });
-    }
-
-    // Listen for root updates
-    const originalOnRootSet = window.onRootSet;
-    window.onRootSet = (root) => {
-        rootStatus.textContent = root;
-        if (originalOnRootSet) originalOnRootSet(root);
-    };
 });
 
 function loadExcludes() {
@@ -117,13 +101,3 @@ function applyTheme(theme) {
         window.updateColorVariables(theme);
     }
 }
-
-function logEvent(msg) {
-    if (eventLogEl) {
-        const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-        eventLogEl.textContent = line + eventLogEl.textContent;
-    }
-}
-
-// Export for use by nodes.js
-window.logEvent = logEvent;

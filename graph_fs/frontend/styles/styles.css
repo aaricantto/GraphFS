@@ -11,22 +11,21 @@ html, body {
 body {
   background-color: var(--white-bg-1);
   color: var(--white-text-1);
-  /* Layout: header auto height, main fills the rest */
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
 
-/* Header styling (improved from current) */
+/* Header styling */
 header {
   padding: 12px;
   background-color: var(--white-bg-2);
   border-bottom: 2px solid var(--border-light);
   box-shadow: 0 2px 4px var(--shadow);
   display: flex;
-  flex-direction: column;  /* ← THIS IS IN THE CSS */
+  flex-direction: column;
   gap: 8px;
-  position: sticky; /* keep header visible; also prevents overlap */
+  position: sticky;
   top: 0;
   z-index: 10;
 }
@@ -35,7 +34,7 @@ header {
   display: flex;
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap; /* prevent horizontal overflow on narrow screens */
+  flex-wrap: wrap;
 }
 
 input[type="text"] {
@@ -66,12 +65,6 @@ button:active {
   transform: translateY(2px);
 }
 
-#root-status {
-  font-family: monospace;
-  opacity: 0.7;
-  font-size: 0.85rem;
-}
-
 .hint {
   opacity: 0.75;
   font-size: 0.8rem;
@@ -81,17 +74,16 @@ button:active {
 /* Main layout */
 main {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  /* let the body grid control height */
-  min-height: 0; /* critical: allow children to shrink and scroll */
+  grid-template-columns: 1fr 400px;
+  min-height: 0;
   gap: 0;
 }
 
-/* Graph pane (matches old app feel) */
+/* Graph pane */
 #graph-pane {
   position: relative;
-  min-height: 0;    /* so #graph fits without forcing overflow */
-  overflow: hidden; /* svg is absolute; hide stray edges */
+  min-height: 0;
+  overflow: hidden;
   border-right: 2px solid var(--border-light);
   background-color: var(--white-bg-2);
 }
@@ -102,21 +94,64 @@ main {
   background-color: var(--white-bg-2);
 }
 
-/* Events panel */
-#events-pane {
-  overflow: auto;
-  min-height: 0; /* ensure this column can scroll within the grid */
-  padding: 12px;
+/* Sidebar */
+#sidebar {
+  display: flex;
+  flex-direction: column;
   background-color: var(--white-bg-2);
   border-left: 2px solid var(--border-light);
+  overflow: hidden;
 }
 
-#events-pane h3 {
-  margin: 8px 0 12px;
-  font-size: 1.1rem;
-  color: var(--white-text-1);
+#sidebar-tabs {
+  display: flex;
+  background-color: var(--white-bg-1);
+  border-bottom: 2px solid var(--border-light);
+  padding: 0;
 }
 
+.sidebar-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background-color: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.sidebar-tab:hover {
+  background-color: var(--white-bg-2);
+  transform: none;
+}
+
+.sidebar-tab.active {
+  border-bottom-color: #ffa000;
+  background-color: var(--white-bg-2);
+  font-weight: 600;
+}
+
+#sidebar-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-panel {
+  display: none;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sidebar-panel.active {
+  display: block;
+}
+
+/* Events Panel */
 #events {
   white-space: pre-wrap;
   font-size: 12px;
@@ -124,7 +159,187 @@ main {
   color: var(--white-text-1);
 }
 
-/* Lasso (matching old app exactly) */
+/* Roots Panel */
+.roots-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.roots-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.small-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+#roots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.root-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background-color: var(--white-bg-1);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.root-item:hover {
+  border-color: #ffa000;
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.root-item.active {
+  border-color: #ffa000;
+  border-width: 2px;
+  background-color: rgba(255, 160, 0, 0.05);
+}
+
+.root-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.root-path {
+  font-family: monospace;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.active-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: #ffa000;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+.root-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  padding: 4px 10px;
+  font-size: 1.2rem;
+  line-height: 1;
+  border-radius: 4px;
+  background-color: transparent;
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+  background-color: #ff4444;
+  color: white;
+  border-color: #ff4444;
+}
+
+/* Files Panel */
+.files-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.files-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.count-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background-color: #ffa000;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 12px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: var(--white-bg-1);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+}
+
+.file-icon {
+  font-size: 1.5rem;
+}
+
+.file-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-path {
+  font-size: 0.8rem;
+  font-family: monospace;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Placeholder text */
+.placeholder {
+  text-align: center;
+  opacity: 0.5;
+  font-style: italic;
+  padding: 32px 16px;
+}
+
+/* Lasso */
 .lasso {
   fill: rgba(0, 0, 255, 0.1);
   stroke: blue;
@@ -139,12 +354,21 @@ main {
 
 [data-theme="dark"] header,
 [data-theme="dark"] #graph-pane,
-[data-theme="dark"] #events-pane {
+[data-theme="dark"] #sidebar {
   background-color: var(--dark-bg-2);
   border-color: var(--border-dark);
 }
 
 [data-theme="dark"] #graph {
+  background-color: var(--dark-bg-2);
+}
+
+[data-theme="dark"] #sidebar-tabs {
+  background-color: var(--dark-bg-1);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .sidebar-tab.active {
   background-color: var(--dark-bg-2);
 }
 
@@ -162,4 +386,18 @@ main {
 
 [data-theme="dark"] #events {
   color: var(--dark-text-1);
+}
+
+[data-theme="dark"] .root-item,
+[data-theme="dark"] .file-item {
+  background-color: var(--dark-bg-1);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .root-item.active {
+  background-color: rgba(255, 160, 0, 0.1);
+}
+
+[data-theme="dark"] .icon-btn {
+  border-color: var(--border-dark);
 }
