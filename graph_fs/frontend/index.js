@@ -22,9 +22,9 @@ window.logEvent = (msg) => window.__logQueue.push(msg);
   await loadScript('https://d3js.org/d3.v7.min.js');
 
   // 2) app modules (order matters)
-  await import('/sidebar/sidebar-manager.js'); // sets up tabs + panels
+  await import('/main/sidebar/sidebar-manager.js'); // sets up tabs + panels
+  await import('/main/header/header-manager.js');   // header controls + theme
   await import('/nodes/nodes.js');                   // graph + sockets
-  await import('/utility.js');                 // header buttons, theme
 
   // When EventsPanel finishes initialization it will replace window.logEvent
   // and flush window.__logQueue automatically.

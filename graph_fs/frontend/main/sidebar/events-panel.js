@@ -1,4 +1,4 @@
-// sidebar/events-panel.js - Events log panel (extracted from utility.js)
+// sidebar/events-panel.js - Events log panel (extracted from)
 
 export class EventsPanel {
     constructor() {
