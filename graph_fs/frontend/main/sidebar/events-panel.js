@@ -11,6 +11,12 @@ export class EventsPanel {
         
         // Expose global logEvent function for backward compatibility
         window.logEvent = (msg) => this.logEvent(msg);
+
+        // Flush any buffered logs captured before the panel bound
+        if (Array.isArray(window.__logQueue)) {
+            window.__logQueue.forEach(m => this.logEvent(m));
+            window.__logQueue = [];
+        }
     }
 
     logEvent(msg) {

@@ -1,4 +1,4 @@
-// nodes.js - Multi-root forest with proper app state integration
+// nodes.js - Multi-root forest with proper app state integration (fully event-driven selection)
 import { GraphRenderer } from './graph-renderer.js';
 import { SocketManager } from '../main/socket-manager.js';
 
@@ -95,6 +95,14 @@ function updateColorVariables(theme) {
 
 const log = (msg) => { if (window.logEvent) window.logEvent(msg); };
 
+// Broadcast current selection to the rest of the app (files panel, etc.)
+function emitSelectedFiles() {
+    const files = Array.from(selectedFiles);
+    document.dispatchEvent(new CustomEvent('graphfs:selected_files', { detail: { files } }));
+    // Back-compat direct call if present
+    if (window.updateFilesPanel) window.updateFilesPanel(selectedFiles);
+}
+
 // -------------------- watch controls --------------------
 window.enableWatch = (path) => {
     if (!path) {
@@ -140,34 +148,44 @@ function initializeGraph() {
     renderer = new GraphRenderer();
     renderer.initialize(graphContainerEl, handleNodeClick, handleLassoSelect);
 
+    // Snap to current theme immediately so first paint is correctly themed
+    const theme =
+      document.documentElement.dataset.theme ||
+      (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    updateColorVariables(theme);
+
     socketManager = new SocketManager();
     setupSocketHandlers();
     socketManager.connect();
 
-    // ========== EVENT-DRIVEN DESELECTION ==========
-    // Listen for file deselection events from the Files panel
+    // Listen for file deselection events from the Files panel (event-driven)
     document.addEventListener('graphfs:deselect_file', (e) => {
         const { path } = e.detail || {};
         if (!path) return;
-        
+
         log(`[event] deselect_file → ${path}`);
-        
+
         // Find the node and deselect it
         const node = nodesMap.get(path);
         if (node && node.type === 'file' && node.selected) {
             node.selected = false;
             selectedFiles.delete(path);
-            
-            // Update visual state
+
+            // Update visuals
             requestAnimationFrame(() => {
                 if (renderer) {
                     renderer.updateNodeColors();
                     renderer.updateLinkColors();
                 }
             });
+
+            // Notify listeners
+            emitSelectedFiles();
         }
     });
-    // ====================================
+
+    // First broadcast (empty selection) so the Files panel paints once
+    emitSelectedFiles();
 }
 
 function setupSocketHandlers() {
@@ -179,12 +197,12 @@ function setupSocketHandlers() {
                 if (r?.path) handleRootAdded(r.path, r.name);
             });
         }
-        
+
         // Dispatch app state if present
         if (data?.state) {
             console.log('[nodes] dispatching initial app_state', data.state);
-            document.dispatchEvent(new CustomEvent('graphfs:app_state', { 
-                detail: data.state 
+            document.dispatchEvent(new CustomEvent('graphfs:app_state', {
+                detail: data.state
             }));
         }
     };
@@ -192,20 +210,20 @@ function setupSocketHandlers() {
     socketManager.onRootAdded = (data) => {
         log(`[srv] root_added ← ${data.root}`);
         handleRootAdded(data.root, data.name);
-        
+
         // Callbacks for panels
         if (window.onRootSet) window.onRootSet(data.root);
-        document.dispatchEvent(new CustomEvent('graphfs:root_added', { 
-            detail: { root: data.root, name: data.name } 
+        document.dispatchEvent(new CustomEvent('graphfs:root_added', {
+            detail: { root: data.root, name: data.name }
         }));
     };
 
     socketManager.onRootRemoved = (data) => {
         log(`[srv] root_removed ← ${data.root}`);
         handleRootRemoved(data.root);
-        
-        document.dispatchEvent(new CustomEvent('graphfs:root_removed', { 
-            detail: { root: data.root } 
+
+        document.dispatchEvent(new CustomEvent('graphfs:root_removed', {
+            detail: { root: data.root }
         }));
     };
 
@@ -231,15 +249,15 @@ function setupSocketHandlers() {
     // App state handlers
     socketManager.onAppState = (state) => {
         console.log('[nodes] app_state received', state);
-        document.dispatchEvent(new CustomEvent('graphfs:app_state', { 
-            detail: state 
+        document.dispatchEvent(new CustomEvent('graphfs:app_state', {
+            detail: state
         }));
     };
 
     socketManager.onFavoriteToggled = (data) => {
         console.log('[nodes] favorite_toggled', data);
-        document.dispatchEvent(new CustomEvent('graphfs:favorite_toggled', { 
-            detail: data 
+        document.dispatchEvent(new CustomEvent('graphfs:favorite_toggled', {
+            detail: data
         }));
     };
 }
@@ -312,6 +330,8 @@ function handleNodeClick(d) {
                 renderer.updateLinkColors();
             }
         });
+
+        emitSelectedFiles();
     }
 }
 
@@ -342,6 +362,8 @@ function handleLassoSelect(selectedNodesInRect) {
             renderer.simulation.restart();
         }
     });
+
+    emitSelectedFiles();
 }
 
 function toggleFolder(node) {
@@ -387,6 +409,7 @@ function collapseFolder(node) {
     node.isOpen = false;
     openFolders.delete(node.id);
 
+    emitSelectedFiles();
     updateGraph();
 }
 
@@ -477,6 +500,8 @@ function removeNodeAndDescendants(node) {
         !descendants.includes(l.source.id || l.source) &&
         !descendants.includes(l.target.id || l.target)
     );
+
+    emitSelectedFiles();
 }
 
 function getDescendants(node) {
@@ -531,6 +556,7 @@ function renameOpenFolder(oldPath, newPath) {
         nodesMap.set(n.id, n);
     });
 
+    emitSelectedFiles();
     return true;
 }
 
@@ -555,7 +581,7 @@ function addChildIfVisible(parentPath, childPath, childName, type) {
     nodesData.push(childNode);
     linksData.push({ source: parentNode, target: childNode });
     updateGraph();
-    
+
     log(`[ui.apply] add → parent=${parentPath} child=${childPath}`);
     return true;
 }
@@ -565,6 +591,7 @@ function removePathIfPresent(absPath) {
     if (!node) return false;
     removeNodeAndDescendants(node);
     updateGraph();
+    emitSelectedFiles();
     log(`[ui.apply] remove → ${absPath}`);
     return true;
 }
@@ -579,6 +606,7 @@ function renameFileInPlace(oldPath, newPath) {
     node.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || node.nodeName;
     nodesMap.set(node.id, node);
     updateGraph();
+    emitSelectedFiles();
     log(`[ui.apply] rename(file) → ${oldPath} → ${newPath}`);
     return true;
 }
@@ -637,6 +665,7 @@ function handleFsEvent(evt) {
                 removeNodeAndDescendants(node);
                 updateGraph();
                 log(`[ui.apply] move(folder) drop old subtree → ${path}`);
+                emitSelectedFiles();
             }
             refreshIfOpen(oldParent);
             refreshIfOpen(newParent);
