@@ -17,6 +17,7 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/")
 
+# Use ASGI mode so we can run with Hypercorn/asyncio (no eventlet)
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -262,9 +263,9 @@ def start_watcher_on_startup():
     except Exception:
         log.exception("Failed to restore saved roots")
 
-
-# Add this to graph_fs/server.py after the existing routes
-
+# -----------------------------------------------------------------------------
+# Extra API
+# -----------------------------------------------------------------------------
 @app.route("/api/read_files", methods=["POST"])
 def read_files():
     """
@@ -275,69 +276,44 @@ def read_files():
     try:
         data = request.get_json()
         paths = data.get("paths", [])
-        
+
         if not paths:
             return jsonify({"error": "No paths provided"}), 400
-        
+
         results = []
-        
         for abs_path in paths:
             try:
                 # Validate path is under a root
                 resolved = fs.resolve(abs_path)
-                
+
                 # Check if file exists and is readable
                 if not os.path.isfile(resolved):
-                    results.append({
-                        "path": abs_path,
-                        "error": "Not a file",
-                        "content": None
-                    })
+                    results.append({"path": abs_path, "error": "Not a file", "content": None})
                     continue
-                
+
                 # Read file with encoding detection fallback
                 try:
-                    with open(resolved, 'r', encoding='utf-8') as f:
+                    with open(resolved, "r", encoding="utf-8") as f:
                         content = f.read()
                 except UnicodeDecodeError:
-                    # Try latin-1 as fallback
                     try:
-                        with open(resolved, 'r', encoding='latin-1') as f:
+                        with open(resolved, "r", encoding="latin-1") as f:
                             content = f.read()
                     except Exception as e:
-                        results.append({
-                            "path": abs_path,
-                            "error": f"Encoding error: {str(e)}",
-                            "content": None
-                        })
+                        results.append({"path": abs_path, "error": f"Encoding error: {e}", "content": None})
                         continue
-                
-                results.append({
-                    "path": abs_path,
-                    "content": content,
-                    "error": None
-                })
-                
+
+                results.append({"path": abs_path, "content": content, "error": None})
+
             except PermissionError:
-                results.append({
-                    "path": abs_path,
-                    "error": "Permission denied",
-                    "content": None
-                })
+                results.append({"path": abs_path, "error": "Permission denied", "content": None})
             except Exception as e:
-                results.append({
-                    "path": abs_path,
-                    "error": str(e),
-                    "content": None
-                })
-        
-        # Filter out files with errors for the response
+                results.append({"path": abs_path, "error": str(e), "content": None})
+
         successful = [r for r in results if r["error"] is None]
-        
         _ok("FILES READ", count=len(successful), total=len(paths))
-        
         return jsonify({"files": successful})
-        
+
     except Exception as e:
         log.exception("read_files failed")
         return jsonify({"error": str(e)}), 500
