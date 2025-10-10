@@ -66,10 +66,17 @@
     </div>
   </main>
 
+  <!-- Log buffer prelude so early logs aren't lost before EventsPanel binds -->
+  <script>
+    window.__logQueue = [];
+    window.logEvent = (msg) => window.__logQueue.push(msg);
+  </script>
+
+  <!-- Vendors first (globals: io, d3) -->
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script type="module" src="/main/sidebar/sidebar-manager.js"></script>
-  <script type="module" src="/main/header/header-manager.js"></script>
-  <script type="module" src="/nodes/nodes.js"></script>
+
+  <!-- Single ESM entrypoint with static imports -->
+  <script type="module" src="/index.js"></script>
 </body>
 </html>
