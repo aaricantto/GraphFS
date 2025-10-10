@@ -28,6 +28,9 @@ export class HeaderManager {
         
         // Initialize state
         this.loadExcludes();
+        
+        // Initialize theme AFTER a short delay to let nodes.js set up updateColorVariables
+        // Or call it immediately and again when nodes.js is ready
         this.initializeTheme();
         
         // Make clear function globally available
@@ -50,6 +53,14 @@ export class HeaderManager {
 
         // Listen for root_added event to clear input
         document.addEventListener('graphfs:root_added', () => this.clearRootInput());
+        
+        // Listen for nodes.js being ready, then reapply theme
+        document.addEventListener('graphfs:graph_ready', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme && window.updateColorVariables) {
+                window.updateColorVariables(currentTheme);
+            }
+        });
     }
 
     // -------------------- Root Management --------------------
@@ -142,8 +153,16 @@ export class HeaderManager {
         document.documentElement.setAttribute('data-theme', theme);
         
         // Notify other modules about theme change
+        // Use a small delay if updateColorVariables doesn't exist yet
         if (window.updateColorVariables) {
             window.updateColorVariables(theme);
+        } else {
+            // Retry after nodes.js has loaded
+            setTimeout(() => {
+                if (window.updateColorVariables) {
+                    window.updateColorVariables(theme);
+                }
+            }, 100);
         }
     }
 }
