@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/styles/variables.css">
   <link rel="stylesheet" href="/styles/styles.css">
+  <!-- overlay styles -->
+  <link rel="stylesheet" href="/nodes/tree-overlay.css">
 </head>
 <body>
   <header>
@@ -28,6 +30,8 @@
 
   <main>
     <div id="graph-pane">
+      <!-- overlay host is auto-created by tree-overlay.js, but you can keep this div if you like -->
+      <!-- <div id="tree-overlay"></div> -->
       <div id="graph"></div>
     </div>
     
@@ -71,6 +75,8 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="/sidebar/sidebar-manager.js"></script>
   <script type="module" src="/nodes/nodes.js"></script>
+  <!-- overlay logic -->
+  <script type="module" src="/nodes/tree-overlay.js"></script>
   <script src="/utility.js"></script>
 </body>
 </html>
