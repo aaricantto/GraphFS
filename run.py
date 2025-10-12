@@ -1,7 +1,8 @@
 from graph_fs.logging_utils import init_logging
 init_logging()  # colored console logs; quiet noisy frameworks by default
 
-# IMPORTANT: we’ll serve the ASGI app from Flask-SocketIO (no eventlet)
+# IMPORTANT: we’ll serve the Flask app (Socket.IO in threading mode) via Hypercorn here,
+# matching your current approach. If you prefer, you can also do socketio.run(app).
 from graph_fs.server import app, socketio, start_watcher_on_startup
 
 if __name__ == "__main__":
@@ -18,5 +19,7 @@ if __name__ == "__main__":
     cfg.accesslog = "-"  # log to stdout
 
     print("✅ Starting GraphFS server (ASGI / asyncio, Python 3.14)…")
-    # Serve the Socket.IO ASGI app (wraps Flask + Socket.IO)
+    # NOTE: Hypercorn expects an ASGI app; many setups serve Flask through ASGI shims,
+    # but your current stack has been running with this entrypoint. If you hit issues,
+    # switch to:  socketio.run(app, host="0.0.0.0", port=5098, debug=True)
     asyncio.run(serve(app, cfg))
