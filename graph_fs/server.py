@@ -7,6 +7,8 @@ from .fs_model import MultiFSModel
 from .watch_registry import WatchRegistry
 from .logging_utils import get_logger, block
 from .appdata import AppState
+from .logging_utils import init_logging
+init_logging()  # ensure INFO logs (watch backend + fs events) are visible
 
 # -----------------------------------------------------------------------------
 # App + Socket.IO setup

@@ -24,6 +24,7 @@ let nodesMap = new Map();
 let selectedFiles = new Set();
 let openFolders = new Set();
 let rootsMap = new Map(); // key: normalized abs path -> { name, path (original) }
+let initialLoadComplete = false; // Track if initial roots have been loaded
 
 // Managers
 let renderer = null;
@@ -62,11 +63,13 @@ window.requestAppState = requestAppState;
 // Overlay-facing readonly snapshot + actions
 window.__graphfs_export = () => ({ nodesMap, selectedFiles, openFolders });
 window.__graphfs_getRoots = () => Array.from(rootsMap.values()); // [{name, path}]
+
 window.expandCollapsePath = (action, path) => {
     const n = nodesMap.get(path);
     if (!n || n.type !== 'folder') return;
     action === 'expand' ? expandFolder(n) : collapseFolder(n);
 };
+
 window.toggleSelectFileByPath = (path) => {
     const n = nodesMap.get(path);
     if (!n || n.type !== 'file') return;
@@ -134,6 +137,7 @@ window.disableWatch = (pathOrNull) => {
 function requestAppState() {
     if (socketManager) socketManager.getAppState();
 }
+
 function toggleFavoriteRoot(path) {
     if (socketManager) socketManager.toggleFavoriteRoot(path);
 }
@@ -141,10 +145,9 @@ function toggleFavoriteRoot(path) {
 // -------------------- init --------------------
 function initializeGraph() {
     const graphContainerEl = document.getElementById('graph');
-
     renderer = new GraphRenderer();
     renderer.initialize(graphContainerEl, handleNodeClick, handleLassoSelect);
-
+    
     socketManager = new SocketManager();
     setupSocketHandlers();
     socketManager.connect();
@@ -165,10 +168,40 @@ function initializeGraph() {
 
 function setupSocketHandlers() {
     socketManager.onServerInfo = (data) => {
+        log('[srv] server_info received');
+        
         // Load existing roots from server on connect
         if (Array.isArray(data?.roots)) {
-            data.roots.forEach(r => { if (r?.path) handleRootAdded(r.path, r.name); });
+            data.roots.forEach(r => { 
+                if (r?.path) {
+                    handleRootAdded(r.path, r.name);
+                }
+            });
+            
+            // After loading all roots, ensure they're properly initialized on backend
+            if (!initialLoadComplete && data.roots.length > 0) {
+                initialLoadComplete = true;
+                
+                // Re-add each root to backend to ensure proper initialization
+                setTimeout(() => {
+                    data.roots.forEach(r => {
+                        if (r?.path) {
+                            log(`[ui] Re-initializing root on backend: ${r.path}`);
+                            socketManager.addRoot(r.path, excludes);
+                        }
+                    });
+                    
+                    // Enable watchers after backend initialization
+                    setTimeout(() => {
+                        if (window.enableWatch) {
+                            log('[ui] Auto-enabling watchers for all roots');
+                            window.enableWatch(null);
+                        }
+                    }, 300);
+                }, 200);
+            }
         }
+        
         if (data?.state) {
             emit('graphfs:app_state', data.state);
         }
@@ -215,6 +248,7 @@ function addRoot(path, newExcludes) {
     if (newExcludes) excludes = newExcludes;
     socketManager.addRoot(path, excludes);
 }
+
 function removeRoot(path) {
     socketManager.removeRoot(path);
 }
@@ -223,7 +257,7 @@ function handleRootAdded(rootAbsPath, rootName) {
     const name = rootName || basename(rootAbsPath);
     const key = norm(rootAbsPath);
     rootsMap.set(key, { name, path: rootAbsPath });
-
+    
     if (!nodesMap.has(rootAbsPath)) {
         const rootNode = new Node(name, rootAbsPath, 'folder', [], false, 0, true);
         nodesData.push(rootNode);
@@ -277,7 +311,7 @@ function handleLassoSelect(selectedNodesInRect) {
             folderCandidates.push(d);
         }
     });
-
+    
     if (folderCandidates.length) {
         const topLevel = topLevelFoldersOnly(folderCandidates);
         const toClose = topLevel.filter(n => n.isOpen).sort((a,b) => b.depth - a.depth);
@@ -285,7 +319,7 @@ function handleLassoSelect(selectedNodesInRect) {
         toClose.forEach(collapseFolder);
         toOpen.forEach(expandFolder);
     }
-
+    
     if (renderer) { renderer.updateNodeColors(); renderer.updateLinkColors(); renderer.simulation.restart(); }
     emit('graphfs:selection_changed', { selected: Array.from(selectedFiles) });
 }
@@ -299,33 +333,27 @@ function expandFolder(node) {
     if (node.isOpen) return;
     node.isOpen = true;
     openFolders.add(node.id);
-
     if (renderer) { renderer.updateNodeColors(); renderer.updateLinkColors(); }
     emit('graphfs:open_state_changed', { open: Array.from(openFolders) });
-
     socketManager.listDir(node.id, excludes);
 }
 
 function collapseFolder(node) {
     if (!node.isOpen) return;
-
     const descendants = getDescendants(node);
     descendants.forEach(descendantId => {
         nodesMap.delete(descendantId);
         selectedFiles.delete(descendantId);
         openFolders.delete(descendantId);
     });
-
     nodesData = nodesData.filter(n => !descendants.includes(n.id));
     linksData = linksData.filter(l =>
         !descendants.includes(l.source.id || l.source) &&
         !descendants.includes(l.target.id || l.target)
     );
-
     node.children = [];
     node.isOpen = false;
     openFolders.delete(node.id);
-
     updateGraph();
     emit('graphfs:open_state_changed', { open: Array.from(openFolders) });
 }
@@ -333,26 +361,25 @@ function collapseFolder(node) {
 // -------------------- listings & fs events --------------------
 function handleListing(dirPath, children) {
     if (!openFolders.has(dirPath) || !nodesMap.has(dirPath)) return;
-
     const parentNode = nodesMap.get(dirPath);
     parentNode.isOpen = true;
     openFolders.add(dirPath);
-
+    
     const childIds = new Set(children.map(c => c.path));
-
     const currentChildren = nodesData.filter(n => {
         return linksData.some(l =>
             (l.source.id || l.source) === dirPath &&
             (l.target.id || l.target) === n.id
         );
     });
+    
     currentChildren.forEach(child => {
         if (!childIds.has(child.id)) removeNodeAndDescendants(child);
     });
-
+    
     const newNodes = [];
     const newLinks = [];
-
+    
     children.forEach(child => {
         let childNode = nodesMap.get(child.path);
         if (!childNode) {
@@ -362,24 +389,23 @@ function handleListing(dirPath, children) {
             nodesMap.set(childNode.id, childNode);
             parentNode.children.push(childNode);
         }
-
         const linkExists = linksData.some(l =>
             (l.source.id || l.source) === parentNode.id &&
             (l.target.id || l.target) === childNode.id
         );
         if (!linkExists) newLinks.push({ source: parentNode, target: childNode });
     });
-
+    
     nodesData.push(...newNodes);
     linksData.push(...newLinks);
     updateGraph();
-
+    
     children.forEach(child => {
         if (child.type === 'folder' && openFolders.has(child.path)) {
             socketManager.listDir(child.path, excludes);
         }
     });
-
+    
     emit('graphfs:listing_applied', { dirPath });
 }
 
@@ -388,10 +414,10 @@ function removeNodeAndDescendants(node) {
         const parent = nodesMap.get(node.parentId);
         parent.children = (parent.children || []).filter(ch => ch.id !== node.id);
     }
-
+    
     const descendants = getDescendants(node);
     descendants.push(node.id);
-
+    
     descendants.forEach(id => {
         const n = nodesMap.get(id);
         if (!n) return;
@@ -399,7 +425,7 @@ function removeNodeAndDescendants(node) {
         selectedFiles.delete(id);
         if (n.type === 'folder') openFolders.delete(id);
     });
-
+    
     nodesData = nodesData.filter(n => !descendants.includes(n.id));
     linksData = linksData.filter(l =>
         !descendants.includes(l.source.id || l.source) &&
@@ -424,7 +450,7 @@ function getDescendants(node) {
 function renameOpenFolder(oldPath, newPath) {
     const node = nodesMap.get(oldPath);
     if (!node) return false;
-
+    
     const stack = [node];
     const affected = [];
     while (stack.length) {
@@ -432,31 +458,27 @@ function renameOpenFolder(oldPath, newPath) {
         affected.push(cur);
         if (cur.children && cur.children.length) stack.push(...cur.children);
     }
-
+    
     const rebase = (oldId) => oldId.startsWith(oldPath) ? (newPath + oldId.slice(oldPath.length)) : oldId;
-
+    
     affected.forEach(n => {
         const oldId = n.id;
-
         if (n.type === 'folder' && n.isOpen) {
             openFolders.delete(oldId);
             openFolders.add(rebase(oldId));
         }
         updateSetRename(selectedFiles, oldId, rebase(oldId));
-
         nodesMap.delete(oldId);
         n.id = rebase(oldId);
         n.fullPath = n.id;
-
         if (n === node) {
             n.nodeName = newPath.split(/[/\\]/).filter(Boolean).pop() || n.nodeName;
         } else if (n.parentId) {
             n.parentId = rebase(n.parentId);
         }
-
         nodesMap.set(n.id, n);
     });
-
+    
     return true;
 }
 
@@ -467,14 +489,13 @@ function updateSetRename(setObj, oldId, newId) {
 function addChildIfVisible(parentPath, childPath, childName, type) {
     if (!openFolders.has(parentPath) || !nodesMap.has(parentPath)) return false;
     if (nodesMap.has(childPath)) return false;
+    
     const parentNode = nodesMap.get(parentPath);
     const childNode = new Node(childName, childPath, type, [], false, parentNode.depth + 1);
     childNode.parentId = parentNode.id;
-
     nodesMap.set(childNode.id, childNode);
     parentNode.children = parentNode.children || [];
     parentNode.children.push(childNode);
-
     nodesData.push(childNode);
     linksData.push({ source: parentNode, target: childNode });
     updateGraph();
@@ -494,6 +515,7 @@ function removePathIfPresent(absPath) {
 function renameFileInPlace(oldPath, newPath) {
     const node = nodesMap.get(oldPath);
     if (!node || node.type !== 'file') return false;
+    
     nodesMap.delete(oldPath);
     updateSetRename(selectedFiles, oldPath, newPath);
     node.id = newPath;
@@ -511,7 +533,7 @@ function handleFsEvent(evt) {
     const path = evt?.path;
     const dest = evt?.dest_path;
     const isDir = !!evt?.is_dir;
-
+    
     const refreshIfOpen = (p) => {
         if (!p) return;
         if (openFolders.has(p)) {
@@ -519,9 +541,9 @@ function handleFsEvent(evt) {
             socketManager.listDir(p, excludes);
         }
     };
-
+    
     if (!path && !dest) return;
-
+    
     if (kind === 'created' && path) {
         const parent = parentDir(path);
         const name = path.split(/[/\\]/).filter(Boolean).pop();
@@ -530,14 +552,14 @@ function handleFsEvent(evt) {
         if (openFolders.has(parent)) socketManager.listDir(parent, excludes);
         return;
     }
-
+    
     if (kind === 'deleted' && path) {
         if (removePathIfPresent(path)) return;
         const parent = parentDir(path);
         if (openFolders.has(parent)) socketManager.listDir(parent, excludes);
         return;
     }
-
+    
     if (kind === 'moved' && isDir && path && dest) {
         const oldParent = parentDir(path);
         const newParent = parentDir(dest);
@@ -565,7 +587,7 @@ function handleFsEvent(evt) {
             return;
         }
     }
-
+    
     if (kind === 'moved' && !isDir && path && dest) {
         const oldParent = parentDir(path);
         const newParent = parentDir(dest);
@@ -582,8 +604,9 @@ function handleFsEvent(evt) {
             return;
         }
     }
-
+    
     if (kind === 'modified' && isDir) return;
+    
     refreshIfOpen(parentDir(path));
     refreshIfOpen(parentDir(dest));
 }

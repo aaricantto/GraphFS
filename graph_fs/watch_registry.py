@@ -53,6 +53,20 @@ class _CtxHandler(FileSystemEventHandler):
                 watch_path=self.watch_path,
             )
         )
+        # 🔊 Add an ultra-clear, single-line summary for quick scanning
+        try:
+            kind_up = (kind or "").upper()
+            typ = "FOLDER" if is_dir else "FILE"
+            src_name = os.path.basename(evt["path"]) or evt["path"]
+            if dest is not None:
+                dest_name = os.path.basename(evt["dest_path"]) or evt["dest_path"]
+                log.info(f"Δ FS: {typ} { 'RENAMED/MOVED' if kind_up=='MOVED' else kind_up }: {src_name} → {dest_name}")
+            else:
+                log.info(f"Δ FS: {typ} {kind_up}: {src_name}")
+        except Exception:
+            # Never let logging issues break the event flow
+            pass
+        
         try:
             self.cb(evt)
         except Exception:
