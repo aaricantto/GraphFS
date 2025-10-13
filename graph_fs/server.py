@@ -2,6 +2,7 @@
 import os
 import logging
 from flask import Flask, send_from_directory, request
+from flask_cors import CORS  # ← ADD THIS
 
 from .fs_model import MultiFSModel
 from .watch_registry import WatchRegistry
@@ -17,6 +18,9 @@ BASE_DIR = os.path.dirname(__file__)
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/")
+
+# ✨ Enable CORS for all routes - allows CDN requests from your localhost origin
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Socket.IO in threading mode (compatible on Windows without eventlet/gevent)
 from flask_socketio import SocketIO
