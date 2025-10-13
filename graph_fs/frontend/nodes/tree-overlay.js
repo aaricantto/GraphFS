@@ -1,21 +1,36 @@
 // mounts a traditional folder view overlay that mirrors graph state
 const OVERLAY_ID = 'tree-overlay';
 
-document.addEventListener('DOMContentLoaded', () => {
+function init() {
   ensureHost();
   render();
 
-  // keep in sync with nodes.js events
-  ['graphfs:root_added','graphfs:root_removed','graphfs:listing_applied',
-   'graphfs:open_state_changed','graphfs:selection_changed','graphfs:app_state']
-   .forEach(ev => document.addEventListener(ev, render));
-});
+  // stay in sync with nodes.js; support both legacy and new selection events
+  [
+    'graphfs:root_added',
+    'graphfs:root_removed',
+    'graphfs:listing_applied',
+    'graphfs:open_state_changed',
+    'graphfs:selection_changed',   // legacy
+    'graphfs:selected_files',      // current
+    'graphfs:app_state'
+  ].forEach(ev => document.addEventListener(ev, render));
+}
+
+// run whether or not DOMContentLoaded already fired
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
 
 function ensureHost() {
   if (!document.getElementById(OVERLAY_ID)) {
     const host = document.createElement('div');
     host.id = OVERLAY_ID;
-    document.getElementById('graph-pane').appendChild(host);
+    const pane = document.getElementById('graph-pane');
+    if (!pane) return; // hard guard
+    pane.appendChild(host);
   }
 }
 
@@ -55,7 +70,7 @@ function fillChildren(ul, parentPath, depth, s) {
   if (!parent || !parent.children) return;
 
   parent.children
-    .sort((a,b)=> (a.type===b.type? a.nodeName.localeCompare(b.nodeName) : a.type==='folder' ? -1 : 1))
+    .sort((a,b)=> (a.type===b.type ? a.nodeName.localeCompare(b.nodeName) : a.type==='folder' ? -1 : 1))
     .forEach(ch => {
       const li = el('li','overlay-item');
       li.style.setProperty('--depth', depth);
@@ -70,7 +85,7 @@ function fillChildren(ul, parentPath, depth, s) {
 }
 
 function makeRow(node, s = window.__graphfs_export?.()) {
-  // 🛑 Only apply "selected" class for FILES; folders never get selection styling here.
+  // Only apply "selected" class for FILES; folders never get selection styling
   const isSelectedRow = node.type === 'file' && node.selected;
   const row = el(
     'div',

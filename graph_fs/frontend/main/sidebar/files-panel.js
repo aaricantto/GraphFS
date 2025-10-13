@@ -1,4 +1,4 @@
-// sidebar/files-panel.js - Enhanced with ordering and robust clipboard (HTTP-safe)
+// sidebar/files-panel.js - Event-driven selection (no polling) + robust clipboard
 
 export class FilesPanel {
     constructor() {
@@ -19,13 +19,19 @@ export class FilesPanel {
         this.filesContentEl = document.getElementById('files-content');
         this.countBadge = document.getElementById('selected-count');
 
-        // Monitor selection changes from nodes.js
-        this.startMonitoring();
+        // Event-driven: listen for graph selection changes
+        document.addEventListener('graphfs:selected_files', (e) => {
+            const files = new Set(e.detail?.files || []);
+            this.syncFromGraph(files);
+        });
 
-        // Expose API for nodes.js to update selections
+        // Back-compat: still expose a direct API if nodes.js wants to call it
         window.updateFilesPanel = (filesSet) => {
             this.syncFromGraph(filesSet);
         };
+
+        // Initial paint
+        this.render();
     }
 
     // ---- HTTP-safe clipboard helpers ---------------------------------------
@@ -72,40 +78,25 @@ export class FilesPanel {
 
     // ------------------------------------------------------------------------
 
-    startMonitoring() {
-        // Poll for changes to window.selectedFiles (from nodes.js)
-        setInterval(() => {
-            if (window.selectedFiles) {
-                const graphFiles = Array.from(window.selectedFiles);
-
-                // Add new files to end of ordered list
-                graphFiles.forEach(path => {
-                    if (!this.selectedFiles.includes(path)) {
-                        this.selectedFiles.push(path);
-                    }
-                });
-
-                // Remove files that were deselected in graph
-                this.selectedFiles = this.selectedFiles.filter(path =>
-                    window.selectedFiles.has(path)
-                );
-
-                this.render();
-            }
-        }, 300);
-    }
-
     syncFromGraph(filesSet) {
         const graphFiles = Array.from(filesSet);
 
         // Preserve order for existing files, add new ones to end
         const newFiles = graphFiles.filter(f => !this.selectedFiles.includes(f));
-        this.selectedFiles = [
+        const next = [
             ...this.selectedFiles.filter(f => filesSet.has(f)),
             ...newFiles
         ];
 
-        this.render();
+        // Avoid unnecessary DOM work if nothing changed
+        const same =
+            next.length === this.selectedFiles.length &&
+            next.every((v, i) => v === this.selectedFiles[i]);
+
+        if (!same) {
+            this.selectedFiles = next;
+            this.render();
+        }
     }
 
     removeFile(path) {

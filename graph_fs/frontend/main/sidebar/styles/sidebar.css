@@ -1,0 +1,33 @@
+/* Additional sidebar-specific utilities */
+
+/* Sidebar scroll behavior */
+.sidebar-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-panel::-webkit-scrollbar-track {
+  background: var(--bg-0);
+}
+
+.sidebar-panel::-webkit-scrollbar-thumb {
+  background: var(--border-1);
+  border-radius: 4px;
+}
+
+.sidebar-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Panel transitions */
+.sidebar-panel {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

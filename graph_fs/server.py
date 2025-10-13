@@ -69,7 +69,7 @@ def _touch_for_root(abs_path: str):
 # -----------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return send_from_directory(FRONTEND_DIR, "templates/index.html")
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 # -----------------------------------------------------------------------------
 # Startup restoration

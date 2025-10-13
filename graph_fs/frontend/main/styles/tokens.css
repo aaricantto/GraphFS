@@ -1,0 +1,43 @@
+/* tokens.css — single source of truth for semantic design tokens.
+   Components should only consume these variables (no hex literals).
+*/
+
+/* ===== Base (light) defaults ===== */
+:root {
+  /* Surfaces */
+  --bg-0: #f4f4f4;  /* page/base */
+  --bg-1: #ffffff;  /* cards, rails, inputs */
+  --bg-2: #f9f9f9;  /* insets, tab bars */
+
+  /* Typography */
+  --ink-1: #333333; /* primary */
+  --ink-2: #666666; /* secondary */
+
+  /* Borders, buttons, shadows */
+  --border-1: #cccccc;
+  --button-bg: #ffffff;
+  --shadow-1: rgba(0, 0, 0, 0.30);
+
+  /* Brand/interaction */
+  --accent: #ffa000;         /* matches existing app highlight */
+  --ring:   #ffa000;
+  --color-on-accent: #ffffff;
+
+  /* Status (used in a few button hovers) */
+  --state-ok:   #4CAF50;
+  --state-warn: #ffb300;
+  --state-err:  #ff4444;
+
+  /* Graph colors (aligned to current app visuals) */
+  --graph-folder:        #ffca28;
+  --graph-folder-open:   #ffa000;
+  --graph-file:          #ff0000;
+  --graph-file-selected: #32CD32;
+  --graph-link:          #999999;
+  --graph-node-stroke:   #ffffff;  /* overridden in dark */
+  --graph-selected-stroke: #000000;/* overridden in dark */
+
+  /* Effects */
+  --backdrop-1: none;
+  --icon-minor-filter: none;
+}

@@ -4,10 +4,7 @@
   <meta charset="utf-8" />
   <title>Graph FS (Multi-Root Forest)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/styles/variables.css">
-  <link rel="stylesheet" href="/styles/styles.css">
-  <!-- overlay styles -->
-  <link rel="stylesheet" href="/nodes/tree-overlay.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
 <body>
   <header>
@@ -71,12 +68,17 @@
     </div>
   </main>
 
+  <!-- Log buffer prelude so early logs aren't lost before EventsPanel binds -->
+  <script>
+    window.__logQueue = [];
+    window.logEvent = (msg) => window.__logQueue.push(msg);
+  </script>
+
+  <!-- Vendors first (globals: io, d3) -->
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script type="module" src="/sidebar/sidebar-manager.js"></script>
-  <script type="module" src="/nodes/nodes.js"></script>
-  <!-- overlay logic -->
-  <script type="module" src="/nodes/tree-overlay.js"></script>
-  <script src="/utility.js"></script>
+
+  <!-- Single ESM entrypoint with static imports -->
+  <script type="module" src="/index.js"></script>
 </body>
 </html>

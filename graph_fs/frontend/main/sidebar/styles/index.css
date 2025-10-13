@@ -1,0 +1,5 @@
+/* Sidebar feature bundle entry point */
+@import url("./sidebar.css");  /* ← ADD THIS for scrollbar/transitions */
+@import url("./roots.css");
+@import url("./files.css");
+@import url("./events.css");
