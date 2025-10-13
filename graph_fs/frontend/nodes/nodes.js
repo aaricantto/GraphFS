@@ -582,6 +582,8 @@ function addChildIfVisible(parentPath, childPath, childName, type) {
   linksData.push({ source: parentNode, target: childNode });
   updateGraph();
   log(`[ui.apply] add → parent=${parentPath} child=${childPath}`);
+  // tell the overlay a visible folder's listing effectively changed
+  emit('graphfs:listing_applied', { dirPath: parentPath });
   return true;
 }
 
@@ -592,6 +594,8 @@ function removePathIfPresent(absPath) {
   updateGraph();
   emitSelectedFiles();
   log(`[ui.apply] remove → ${absPath}`);
+  // notify overlay for immediate redraw of the parent list
+  emit('graphfs:listing_applied', { dirPath: parentDir(absPath) });
   return true;
 }
 
@@ -608,6 +612,8 @@ function renameFileInPlace(oldPath, newPath) {
   updateGraph();
   emitSelectedFiles();
   log(`[ui.apply] rename(file) → ${oldPath} → ${newPath}`);
+  // refresh the parent row in the overlay (same parent in this code path)
+  emit('graphfs:listing_applied', { dirPath: parentDir(newPath) });
   return true;
 }
 
@@ -692,11 +698,13 @@ function handleFsEvent(evt) {
 
   if (kind === 'modified' && isDir) return;
 
-  refreshIfOpen(parentDir(path));
-  refreshIfOpen(parentDir(dest));
+  // defensively guard against undefined path/dest
+  if (path) refreshIfOpen(parentDir(path));
+  if (dest) refreshIfOpen(parentDir(dest));
 }
 
 function parentDir(path) {
+  if (!path || typeof path !== 'string') return '';
   const parts = path.split(/[/\\]/).filter(Boolean);
   if (parts.length <= 1) return path;
   parts.pop();
