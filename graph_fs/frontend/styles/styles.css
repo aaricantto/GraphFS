@@ -421,6 +421,43 @@ main {
   stroke-width: 1px;
 }
 
+/* === Transparent, overlay-style scrollbars (overlay + sidebar) === */
+#tree-overlay,
+.sidebar-panel,
+#sidebar-content {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+/* WebKit */
+#tree-overlay::-webkit-scrollbar,
+.sidebar-panel::-webkit-scrollbar,
+#sidebar-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+#tree-overlay::-webkit-scrollbar-track,
+.sidebar-panel::-webkit-scrollbar-track,
+#sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+#tree-overlay::-webkit-scrollbar-thumb,
+.sidebar-panel::-webkit-scrollbar-thumb,
+#sidebar-content::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb);
+  border-radius: 8px;
+  border: 3px solid transparent;      /* makes the thumb look “floating” */
+  background-clip: padding-box;
+}
+#tree-overlay::-webkit-scrollbar-thumb:hover,
+.sidebar-panel::-webkit-scrollbar-thumb:hover,
+#sidebar-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+#tree-overlay::-webkit-scrollbar-corner,
+.sidebar-panel::-webkit-scrollbar-corner,
+#sidebar-content::-webkit-scrollbar-corner { background: transparent; }
+
 /* Dark theme */
 [data-theme="dark"] body {
   background-color: var(--dark-bg-1);
@@ -484,8 +521,6 @@ main {
   color: var(--dark-text-1);
 }
 
-/* Add to graph_fs/frontend/styles/styles.css */
-
 /* Orderable file items */
 .file-item.orderable {
   cursor: grab;
@@ -496,14 +531,8 @@ main {
   position: relative;
 }
 
-.file-item.orderable:active {
-  cursor: grabbing;
-}
-
-.file-item.dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
-}
+.file-item.orderable:active { cursor: grabbing; }
+.file-item.dragging { opacity: 0.5; transform: scale(0.95); }
 
 .file-item.drag-over {
   border-color: #ffa000;
@@ -537,14 +566,8 @@ main {
   line-height: 1;
   padding: 0 4px;
 }
-
-.drag-handle:hover {
-  opacity: 0.8;
-}
-
-.file-item.orderable:active .drag-handle {
-  cursor: grabbing;
-}
+.drag-handle:hover { opacity: 0.8; }
+.file-item.orderable:active .drag-handle { cursor: grabbing; }
 
 /* Remove button styling */
 .icon-btn.remove-file {
@@ -563,14 +586,8 @@ main {
 }
 
 /* Updated file info to work with new layout */
-.file-item.orderable .file-info {
-  flex: 1;
-  min-width: 0; /* Allow text truncation */
-}
-
-.file-item.orderable .file-icon {
-  flex-shrink: 0;
-}
+.file-item.orderable .file-info { flex: 1; min-width: 0; }
+.file-item.orderable .file-icon { flex-shrink: 0; }
 
 /* Action buttons */
 .files-actions {
@@ -586,12 +603,7 @@ main {
   padding: 12px 16px;
   font-weight: 500;
 }
-
-.action-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
+.action-btn.disabled { opacity: 0.5; cursor: not-allowed; }
 .action-btn:not(.disabled):hover {
   background-color: rgba(255, 160, 0, 0.1);
   border-color: #ffa000;
@@ -614,45 +626,16 @@ main {
   z-index: 1000;
   animation: slideIn 0.3s ease;
 }
-
-.copy-success-notification.fade-out {
-  animation: fadeOut 0.3s ease;
-  opacity: 0;
-}
+.copy-success-notification.fade-out { animation: fadeOut 0.3s ease; opacity: 0; }
 
 @keyframes slideIn {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(400px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
 }
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
 /* Dark theme adjustments */
-[data-theme="dark"] .file-number {
-  background-color: #ff8c00;
-}
-
-[data-theme="dark"] .drag-handle {
-  color: var(--dark-text-1);
-}
-
-[data-theme="dark"] .copy-success-notification {
-  background-color: #45a049;
-}
-
-[data-theme="dark"] .file-item.drag-over {
-  background-color: rgba(255, 160, 0, 0.15);
-}
+[data-theme="dark"] .file-number { background-color: #ff8c00; }
+[data-theme="dark"] .drag-handle { color: var(--dark-text-1); }
+[data-theme="dark"] .copy-success-notification { background-color: #45a049; }
+[data-theme="dark"] .file-item.drag-over { background-color: rgba(255, 160, 0, 0.15); }
