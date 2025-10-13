@@ -2,8 +2,7 @@
 
 A graph-based folder explorer for AI-driven development. Visualize your project structure, select multiple files, and copy them in bulk with formatted context perfect for AI assistants.
 
-![GraphFS Interface](images/image1.png)
-![GraphFS Interface](images/image2.png)
+![GraphFS Interface](image.png)
 
 ---
 
