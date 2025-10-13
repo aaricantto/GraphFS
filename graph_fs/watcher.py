@@ -5,7 +5,7 @@ import traceback
 from typing import Callable, Optional
 
 from watchdog.events import FileSystemEventHandler
-from watchdog.observers.inotify import InotifyObserver
+from .filesystem import get_observer_class, backend_name
 
 
 class _Handler(FileSystemEventHandler):
@@ -34,7 +34,6 @@ class _Handler(FileSystemEventHandler):
 
     @staticmethod
     def _log(msg: str) -> None:
-        # Simple, unbuffered log to stdout so you can see events immediately.
         print(f"[watcher] {msg}", flush=True)
 
     def _emit(self, kind: str, src: str, is_dir: bool, dest: Optional[str] = None) -> None:
@@ -60,32 +59,18 @@ class _Handler(FileSystemEventHandler):
             self._log("ERROR delivering event to callback:")
             traceback.print_exc(file=sys.stdout)
 
-    # --- watchdog event hooks -----------------------------------------------
-    def on_created(self, event):
-        self._emit("created", event.src_path, event.is_directory)
-
-    def on_deleted(self, event):
-        self._emit("deleted", event.src_path, event.is_directory)
-
-    def on_modified(self, event):
-        # Many editors touch files frequently; still forward so the UI can decide.
-        self._emit("modified", event.src_path, event.is_directory)
-
-    def on_moved(self, event):
-        self._emit("moved", event.src_path, event.is_directory, dest=event.dest_path)
-
 
 class WatchManager:
     """
-    Manages a single inotify observer bound to a 'root' path.
+    Manages a single platform-appropriate observer bound to a 'root' path.
 
-    - Uses Linux inotify ONLY (no polling, no fallback).
     - start(root, cb): begins watching recursively from root
     - stop(): stops observer
     """
 
     def __init__(self):
-        self.observer: Optional[InotifyObserver] = None
+        self.ObserverClass = get_observer_class()
+        self.observer = None
         self.root: Optional[str] = None
 
     @property
@@ -94,7 +79,7 @@ class WatchManager:
 
     def start(self, root: str, cb: Callable[[dict], None]):
         """
-        Start watching `root` recursively with inotify. Raises on any failure.
+        Start watching `root` recursively. Raises on any failure.
         """
         self.stop()  # cleanly replace an existing observer
 
@@ -105,21 +90,20 @@ class WatchManager:
             raise NotADirectoryError(f"Not a directory: {abs_root}")
 
         handler = _Handler(cb)
-        obs = InotifyObserver()
+        obs = self.ObserverClass()
 
-        # Schedule and start. Any scheduling failure (e.g., path not supported)
-        # will raise here and we propagate it — no fallback.
+        # Schedule and start.
         try:
             obs.schedule(handler, abs_root, recursive=True)
         except Exception as e:
-            raise RuntimeError(f"inotify failed to schedule on {abs_root}: {e}")
+            raise RuntimeError(f"watcher schedule failed on {abs_root}: {e}")
 
         obs.daemon = True
         obs.start()
 
         self.observer = obs
         self.root = abs_root
-        print(f"[watcher] started (inotify) on {self.root}", flush=True)
+        print(f"[watcher] started ({backend_name(self.ObserverClass)}) on {self.root}", flush=True)
 
     def stop(self):
         """

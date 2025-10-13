@@ -14,7 +14,7 @@
   --dark-text-1: #f4f4f4;
   --border-dark: #444444;
   --button-bg-dark: #333333;
-  
+
   /* Graph colors (matching old app exactly) */
   --folder-color: #ffca28;
   --folder-open-color: #ffa000;
@@ -25,8 +25,16 @@
   --node-stroke-dark: #1a1a1a;
   --selected-stroke-light: #000000;
   --selected-stroke-dark: #ffffff;
+
+  /* Scrollbar (overlay/transparent) */
+  --sb-thumb: rgba(0, 0, 0, 0.25);
+  --sb-thumb-hover: rgba(0, 0, 0, 0.40);
 }
 
 [data-theme="dark"] {
   --shadow: rgba(80, 80, 80, 0.3);
+
+  /* darker base, lighter thumb */
+  --sb-thumb: rgba(255, 255, 255, 0.25);
+  --sb-thumb-hover: rgba(255, 255, 255, 0.40);
 }
