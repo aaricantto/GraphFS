@@ -374,8 +374,8 @@ function handleNodeClick(d) {
 function handleLassoSelect(selectedNodesInRect) {
   const folderCandidates = [];
   selectedNodesInRect.forEach(d => {
-    d.selected = !d.selected;
     if (d.type === 'file') {
+      d.selected = !d.selected;
       if (d.selected) selectedFiles.add(d.id); else selectedFiles.delete(d.id);
     } else if (d.type === 'folder') {
       folderCandidates.push(d);
@@ -409,6 +409,7 @@ function toggleFolder(node) {
 function expandFolder(node) {
   if (node.isOpen) return;
   node.isOpen = true;
+  node.selected = true;               // ← selection follows open
   openFolders.add(node.id);
   if (renderer) { renderer.updateNodeColors(); renderer.updateLinkColors(); }
   emit('graphfs:open_state_changed', { open: Array.from(openFolders) });
@@ -430,6 +431,7 @@ function collapseFolder(node) {
   );
   node.children = [];
   node.isOpen = false;
+  node.selected = false;              // ← selection follows close
   openFolders.delete(node.id);
 
   emitSelectedFiles();
@@ -442,6 +444,8 @@ function handleListing(dirPath, children) {
   if (!openFolders.has(dirPath) || !nodesMap.has(dirPath)) return;
   const parentNode = nodesMap.get(dirPath);
   parentNode.isOpen = true;
+  parentNode.selected = true;      // ← keep selection synced if listing arrives later
+
   openFolders.add(dirPath);
 
   const childIds = new Set(children.map(c => c.path));
